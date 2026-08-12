@@ -4,6 +4,7 @@ import { COPY, WORLDS, getAlternateWorlds, getWorldMapping } from "@/config/port
 import { usePortalFlow } from "@/lib/FlowContext";
 import type { WorldDef } from "@/lib/types";
 import GradientCard from "./GradientCard";
+import MirrorStage from "./MirrorStage";
 
 export default function StepMirror() {
   const { state, dispatch } = usePortalFlow();
@@ -33,14 +34,16 @@ export default function StepMirror() {
         {currentWorld.name}
       </p>
 
-      <div
-        className={[
-          "flex h-72 w-72 flex-col items-center justify-center rounded-full border border-dashed text-center",
-          currentWorld.textOn === "light" ? "border-white/50 text-white/80" : "border-ink/30 text-ink/60",
-        ].join(" ")}
-      >
-        <p className="font-serif text-xl">{COPY.mirrorPlaceholder}</p>
-        <p className="mt-2 text-xs opacity-70">{COPY.mirrorHint}</p>
+      <div className="flex flex-col items-center gap-3">
+        <MirrorStage />
+        <p
+          className={[
+            "max-w-md text-center text-xs",
+            currentWorld.textOn === "light" ? "text-white/60" : "text-ink/40",
+          ].join(" ")}
+        >
+          {COPY.mirrorHint}
+        </p>
       </div>
 
       <div className="flex w-full max-w-3xl flex-col items-center gap-4">

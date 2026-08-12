@@ -33,9 +33,18 @@ export const COPY = {
   resultAltLabel: "다른 세계도 살펴보세요",
 
   mirrorPlaceholder: "여기에 당신이 나타납니다",
-  mirrorHint: "웹캠 합성은 다음 단계에서 연결됩니다",
+  mirrorHint: "지금은 실제 영상만 보여드려요. 배경 합성은 다음 단계에서 연결됩니다.",
   mirrorThumbLabel: "다른 세계로 바꿔보기",
   captureButton: "캡처",
+
+  cameraLoading: "카메라 준비 중...",
+  cameraPermissionDenied: "카메라 접근이 필요합니다. 브라우저 권한을 확인해주세요.",
+  cameraNotFound: "연결된 카메라를 찾을 수 없습니다.",
+  cameraInUse: "카메라를 사용할 수 없습니다. 다른 프로그램이 사용 중인지 확인해주세요.",
+  cameraUnsupported: "이 브라우저는 카메라를 지원하지 않습니다.",
+  cameraGenericError: "카메라를 시작하지 못했습니다.",
+  cameraRetryButton: "다시 시도",
+  cameraDeviceLabel: "카메라 선택",
 
   resultSaveHeading: "당신의 순간이 도착했습니다",
   saveMomentButton: "이 순간 저장하기",
@@ -182,6 +191,17 @@ export const WORLD_ALTERNATES: Record<WorldId, [WorldId, WorldId]> = {
   seoul_neon: ["ibiza_sunset", "newyork_attitude"],
   ibiza_sunset: ["seoul_neon", "milano_terrace"],
 };
+
+// -----------------------------------------------------------------------------
+// 6. 카메라 설정 — 미러(4단계) 화면에서 웹캠을 켤 때 쓰는 값.
+//    width/height: 요청 해상도 (부스 PC 성능에 맞춰 낮추면 더 부드럽게 동작).
+//    mirror: 좌우 반전 여부. 셀피처럼 보이도록 기본 true 권장.
+// -----------------------------------------------------------------------------
+export const CAMERA_CONFIG = {
+  width: 1280,
+  height: 720,
+  mirror: true,
+} as const;
 
 // -----------------------------------------------------------------------------
 // 헬퍼 — 컴포넌트에서 바로 쓰는 조회 함수들. 이 아래는 보통 수정할 필요 없음.
