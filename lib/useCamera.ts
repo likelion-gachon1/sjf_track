@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CAMERA_CONFIG, COPY } from "@/config/portal.config";
+import { COPY } from "@/config/portal.config";
+import { usePortalRuntime } from "@/lib/PortalRuntime";
 
 export type CameraStatus = "idle" | "requesting" | "ready" | "error";
 
@@ -15,30 +16,23 @@ interface UseCameraResult {
   retry: () => void;
 }
 
-// 미러 화면이 마운트된 동안에만 카메라를 켜고, 언마운트되면(다른 단계로 이동,
-// 브라우저 뒤로가기 등) 아래 effect의 cleanup에서 스트림을 확실히 stop() 합니다.
+// 스트림 자체는 PortalRuntime 이 보관합니다(05에서 미리 확보 → 07에서 재사용).
+// 이 훅은 <video> 연결, 에러 분류, 기기 목록만 담당합니다.
+// ⚠️ 언마운트 시 스트림을 stop 하지 않습니다. 05→07 이동 중에 끊기면 07 진입이
+//    다시 느려지고 권한 팝업 타이밍도 깨집니다. 종료는 releaseAll() 한 곳에서만.
 export function useCamera(): UseCameraResult {
+  const { acquireCamera } = usePortalRuntime();
   const videoRef = useRef<HTMLVideoElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
   const [status, setStatus] = useState<CameraStatus>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
   const [retryToken, setRetryToken] = useState(0);
 
-  const stopStream = useCallback(() => {
-    streamRef.current?.getTracks().forEach((track) => track.stop());
-    streamRef.current = null;
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
-  }, []);
-
   useEffect(() => {
     let cancelled = false;
 
     async function start() {
-      stopStream();
       setStatus("requesting");
       setErrorMessage(null);
 
@@ -49,25 +43,19 @@ export function useCamera(): UseCameraResult {
       }
 
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: false,
-          video: {
-            width: { ideal: CAMERA_CONFIG.width },
-            height: { ideal: CAMERA_CONFIG.height },
-            ...(selectedDeviceId ? { deviceId: { exact: selectedDeviceId } } : {}),
-          },
-        });
+        const stream = await acquireCamera(selectedDeviceId ?? undefined);
+        if (cancelled) return;
 
-        if (cancelled) {
-          stream.getTracks().forEach((track) => track.stop());
-          return;
+        const video = videoRef.current;
+        if (video) {
+          if (video.srcObject !== stream) {
+            video.srcObject = stream;
+          }
+          // 재생이 거부되더라도(예: 다른 load 요청으로 중단) 프레임 루프가
+          // readyState 를 보고 기다리므로 여기서 실패로 처리하지 않습니다.
+          await video.play().catch(() => {});
         }
-
-        streamRef.current = stream;
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          await videoRef.current.play();
-        }
+        if (cancelled) return;
         setStatus("ready");
 
         // 카메라 라벨은 권한 허용 후에만 채워지므로 스트림 획득 이후에 조회합니다.
@@ -86,9 +74,8 @@ export function useCamera(): UseCameraResult {
 
     return () => {
       cancelled = true;
-      stopStream();
     };
-  }, [selectedDeviceId, retryToken, stopStream]);
+  }, [acquireCamera, selectedDeviceId, retryToken]);
 
   const retry = useCallback(() => setRetryToken((t) => t + 1), []);
   const selectDevice = useCallback((deviceId: string) => setSelectedDeviceId(deviceId), []);
@@ -110,6 +97,9 @@ function toErrorMessage(err: unknown): string {
     }
     if (err.name === "NotReadableError" || err.name === "TrackStartError") {
       return COPY.cameraInUse;
+    }
+    if (err.name === "NotSupportedError") {
+      return COPY.cameraUnsupported;
     }
   }
   return COPY.cameraGenericError;

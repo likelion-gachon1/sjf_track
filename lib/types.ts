@@ -1,10 +1,25 @@
 // Shared types for the MCM PORTAL flow.
-// Editable content that USES these types lives in /config/portal.config.ts —
-// this file only defines the shapes, it shouldn't need to change often.
+// Editable content that USES these types lives in /config/portal.config.ts and
+// /config/products.config.ts — this file only defines the shapes, it shouldn't
+// need to change often.
 
-export type MoodKey = "excitement" | "confidence" | "ease" | "dreamy";
+/** 03 MOOD 화면의 선택지. 내부적으로 TimeOfDay 축으로 번역됩니다. */
+export type MoodKey = "light" | "calm" | "bold";
 
-export type ColorKey = "pink" | "black" | "beige" | "vivid";
+/** 04 TRAVEL STYLE 화면의 선택지. 내부적으로 SceneType 축으로 번역됩니다. */
+export type JourneyKey = "explore" | "culture" | "relax";
+
+/** 02 PRODUCT 화면에서 고르는 컬러웨이. */
+export type ColorwayKey = "pink" | "black";
+
+// -----------------------------------------------------------------------------
+// World 결정 축
+// 사용자는 장소나 시간대를 직접 고르지 않습니다. 분위기(MoodKey)가 timeOfDay,
+// 여행 스타일(JourneyKey)이 sceneType 으로 매핑되어 World가 결정됩니다.
+// ⚠️ 이 두 축은 내부 축이므로 화면에 드러내지 마세요.
+// -----------------------------------------------------------------------------
+export type TimeOfDay = "day" | "golden" | "night";
+export type SceneType = "street" | "culture" | "leisure";
 
 export type WorldId =
   | "paris_dawn"
@@ -16,15 +31,82 @@ export type WorldId =
   | "newyork_attitude"
   | "santorini_breeze";
 
-export type StepId = "intro" | "guided" | "worldResult" | "mirror" | "result";
+export type StepId =
+  | "intro" // 01 START
+  | "product" // 02 PRODUCT       (01/03)
+  | "mood" // 03 MOOD             (02/03)
+  | "journey" // 04 TRAVEL STYLE  (03/03)
+  | "opening" // 05 PORTAL OPENING (프리로드 구간)
+  | "reveal" // 06 WORLD REVEAL
+  | "experience" // 07 EXPERIENCE
+  | "handoff"; // QR HANDOFF
+
+/**
+ * 인물을 배경에서 분리하는 방식.
+ *
+ * - `"segmentation"` — MediaPipe SelfieSegmentation (**현재 동작 방식**).
+ *   배경에 아무 제약이 없는 대신, 프레임마다 마스크를 새로 추정하므로 인물이
+ *   움직이면 경계가 미세하게 흔들리고 그 틈으로 실제 배경이 살짝 비칩니다.
+ * - `"chromakey"` — 그린 스크린 + 색상 키잉 (**부스 제작 시 적용 예정**).
+ *   색이라는 고정 기준으로 자르기 때문에 움직여도 경계가 흔들리지 않습니다.
+ *
+ * ⚠️ `"chromakey"` 는 아직 구현되지 않았습니다. `MATTING_CONFIG` 주석과
+ *    README "다음 단계: 그린 스크린 크로마키" 를 참고하세요.
+ */
+export type MattingMode = "segmentation" | "chromakey";
+
+/** 캔버스에서 CSS gradient 를 그대로 재현하기 위한 스톱. */
+export interface GradientStop {
+  /** 0~1 */
+  offset: number;
+  color: string;
+}
+
+export interface Colorway {
+  key: ColorwayKey;
+  /** 카드에 표기되는 라벨 — "PINK" */
+  label: string;
+  /** 제품 이미지가 없을 때의 플레이스홀더 색이자 World 포인트 컬러. */
+  hex: string;
+  /** /products/*.png (없으면 hex 플레이스홀더) */
+  image?: string;
+  storeUrl?: string;
+}
+
+export interface Product {
+  id: string;
+  /** "Stark Backpack" */
+  name: string;
+  /** "in Visetos" */
+  line: string;
+  colorways: Colorway[];
+}
 
 export interface WorldDef {
   id: WorldId;
+  /** 06 리빌 화면의 대문자 표기 — "NEW YORK" */
+  displayName: string;
+  /** 한글 표기 — "뉴욕 애티튜드" */
   name: string;
   /** Short line shown under the world name on cards/thumbnails. */
   tagline: string;
+  /** 분위기가 반영되는 내부 축 (화면 비노출). */
+  timeOfDay: TimeOfDay;
+  /** 여행 스타일이 반영되는 내부 축 (화면 비노출). */
+  sceneType: SceneType;
   /** CSS gradient string, applied directly via style={{ backgroundImage }}. */
   gradient: string;
+  /**
+   * 07 캔버스 합성용. CSS 문자열을 파싱하는 대신 같은 값을 여기에 적어둡니다
+   * (lib/composite.ts 가 createLinearGradient 로 재현). gradient 와 함께 고쳐주세요.
+   */
+  gradientStops: GradientStop[];
+  /** gradient 의 각도(deg, CSS 기준). 생략하면 135. */
+  gradientAngle?: number;
+  /** /worlds/*.webp — 없으면 gradient 폴백 */
+  backgroundImage?: string;
+  /** /bgm/{worldId}.mp3 — 파일이 없어도 앱은 무음으로 정상 동작합니다. */
+  bgm?: string;
   /** Which text color reads best on top of this gradient. */
   textOn: "light" | "dark";
 }
@@ -35,15 +117,9 @@ export interface QuestionOption<K extends string> {
 }
 
 export interface QuestionDef<K extends string> {
-  id: "mood" | "color";
+  id: "mood" | "journey";
   prompt: string;
   options: QuestionOption<K>[];
-}
-
-export interface WorldMappingEntry {
-  worldId: WorldId;
-  /** Human-readable "왜 이 세계인지" sentence shown on the result screen. */
-  reason: string;
 }
 
 export interface SavedMoment {
@@ -51,9 +127,11 @@ export interface SavedMoment {
   worldId: WorldId;
   savedAt: number;
   productInterest: boolean;
+  /** 촬영 결과 JPEG dataURL (서버 업로드 없이 메모리에만 보관). */
+  imageDataUrl: string;
 }
 
 export interface Answers {
   mood: MoodKey | null;
-  color: ColorKey | null;
+  journey: JourneyKey | null;
 }
