@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell($src = \"node_modules\\\\@mediapipe\\\\selfie_segmentation\"; $dest = \"public\\\\mediapipe\\\\selfie_segmentation\"; New-Item -ItemType Directory -Force -Path $dest | Out-Null; Get-ChildItem $src -File | Where-Object { $_.Name -notin @\\(\"package.json\",\"index.d.ts\",\"README.md\"\\) } | Copy-Item -Destination $dest; New-Item -ItemType Directory -Force -Path \"public\\\\bgm\",\"public\\\\worlds\",\"public\\\\products\" | Out-Null; foreach \\($d in @\\(\"public\\\\bgm\",\"public\\\\worlds\",\"public\\\\products\"\\)\\) { if \\(-not \\(Test-Path \"$d\\\\.gitkeep\"\\)\\) { New-Item -ItemType File \"$d\\\\.gitkeep\" | Out-Null } }; Get-ChildItem $dest | Select-Object Name, @{n='KB';e={[math]::Round\\($_.Length/1KB\\)}})",
+      "Bash(node -e ' *)",
+      "Bash(npx tsc *)",
+      "Bash(npx next *)",
+      "Bash(npm run *)",
+      "Bash(curl -s -o /dev/null -w \"dev / => %{http_code}\\\\n\" http://localhost:3000/)",
+      "Bash(grep -o 'var ya=[^;]\\\\{0,60\\\\}' \"_app-pages-browser_node_modules_mediapipe_selfie_segmentation_selfie_segmentation_js.js\")",
+      "Bash(grep -o 'var ya=[^;]\\\\{0,80\\\\}' .next/static/chunks/_app-pages-browser_node_modules_mediapipe_selfie_segmentation_selfie_segmentation_js.js)",
+      "Bash(grep -o 'call\\(this\\)[^\"]\\\\{0,40\\\\}' .next/static/chunks/_app-pages-browser_node_modules_mediapipe_selfie_segmentation_selfie_segmentation_js.js)",
+      "Bash(python -c ' *)",
+      "Bash(echo \"=== project images ===\" && find . -path ./node_modules -prune -o -path ./.next -prune -o -type f \\\\\\( -iname \"*.png\" -o -iname \"*.jpg\" -o -iname \"*.jpeg\" -o -iname \"*.webp\" -o -iname \"*.avif\" \\\\\\) -print 2>/dev/null | head -20; echo \"=== scratchpad / temp images \\(recent\\) ===\" ; find \"C:/Users/SolaLuke/AppData/Local/Temp/claude\" -type f \\\\\\( -iname \"*.png\" -o -iname \"*.jpg\" -o -iname \"*.jpeg\" -o -iname \"*.webp\" \\\\\\) 2>/dev/null | head -20; echo \"=== clipboard-ish dirs ===\"; ls -t \"C:/Users/SolaLuke/Downloads\" 2>/dev/null | head -10)",
+      "Read(//c/Users/SolaLuke/AppData/Local/Temp/claude/**)",
+      "Read(//c/Users/SolaLuke/Downloads/**)"
+    ]
+  }
+}

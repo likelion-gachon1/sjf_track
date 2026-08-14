@@ -1,42 +1,71 @@
 // =============================================================================
 // MCM PORTAL — 편집용 설정 파일
 // -----------------------------------------------------------------------------
-// 팀에서 수정할 만한 값(카피, World 목록, 질문/선택지, 매핑 규칙)은 전부 이
-// 파일에 모아뒀습니다. 컴포넌트 코드는 건드릴 필요 없이 아래 상수만 바꾸면
-// 화면에 바로 반영됩니다.
+// 팀에서 수정할 만한 값(카피, World 목록, 질문/선택지, World 결정 규칙, 카메라·
+// 합성·전환·BGM 파라미터)은 전부 이 파일에 모아뒀습니다. 컴포넌트 코드는 건드릴
+// 필요 없이 아래 상수만 바꾸면 화면에 바로 반영됩니다.
+// 제품(02 화면) 데이터만 config/products.config.ts 로 분리돼 있습니다.
 // =============================================================================
 
+import { PRODUCTS } from "@/config/products.config";
 import type {
-  ColorKey,
+  ColorwayKey,
+  JourneyKey,
+  MattingMode,
   MoodKey,
   QuestionDef,
+  SceneType,
+  TimeOfDay,
   WorldDef,
   WorldId,
-  WorldMappingEntry,
 } from "@/lib/types";
 
 // -----------------------------------------------------------------------------
-// 1. 브랜드 카피 — 인트로 화면 및 공용 문구
+// 1. 브랜드 카피 — 화면에 보이는 모든 문구
+//    "\n" 은 화면에서 줄바꿈으로 렌더링됩니다.
 // -----------------------------------------------------------------------------
 export const COPY = {
   brandName: "MCM PORTAL",
-  introTagline: "거울은 지금의 나를 비추지만, PORTAL은 되고 싶은 나를 보여줍니다.",
-  introSubline: "당신을 위한 브랜드 세계로 들어가 보세요.",
-  consentLabel: "촬영된 이미지가 MCM PORTAL 경험 제공을 위해 사용되는 것에 동의합니다 (초상권 동의)",
+  wordmark: "MCM",
+
+  // 01 START
+  introTagline: "MCM과 함께\n새로운 World로 떠나보세요.",
+  introSubline: "당신의 선택으로 시작되는\nMCM EXPERIENCE",
+  consentLabel: "촬영 이미지 활용에 동의합니다.",
   startButton: "시작하기",
 
-  guidedGreeting: "안녕하세요, 오늘 당신에게 어울리는 세계를 찾아드릴게요.",
-  guidedSubline: "두 가지 질문에 답하면 당신만의 World를 추천해 드립니다.",
+  // 02 PRODUCT
+  productHeading: "어떤 MCM과 함께 떠날까요?",
+  productSubline: "원하는 제품을 선택해주세요.",
 
-  resultHeading: "당신을 위한 세계를 찾았습니다",
-  resultPrimaryCta: "이 세계로 들어가기",
-  resultAltLabel: "다른 세계도 살펴보세요",
+  // 03 MOOD
+  moodHeading: "이번 여행은 어떤 느낌이었으면 좋겠나요?",
+  moodSubline: "원하는 분위기를 선택해주세요.",
 
-  mirrorPlaceholder: "여기에 당신이 나타납니다",
-  mirrorHint: "지금은 실제 영상만 보여드려요. 배경 합성은 다음 단계에서 연결됩니다.",
-  mirrorThumbLabel: "다른 세계로 바꿔보기",
-  captureButton: "캡처",
+  // 04 TRAVEL STYLE
+  journeyHeading: "여행지에서 가장 하고 싶은 건?",
+  journeySubline: "원하는 여행 스타일을 선택해주세요.",
+  journeyFootnote: "선택과 동시에 다음 단계로 이동합니다.",
 
+  // 05 PORTAL OPENING
+  openingMessage: "당신에게 어울리는\nWorld를 찾고 있습니다.",
+
+  // 06 WORLD REVEAL
+  revealEyebrow: "YOUR MCM WORLD",
+  revealCta: "PORTAL 입장하기",
+
+  // 07 EXPERIENCE
+  captureButton: "촬영하기",
+  bgmOnLabel: "배경음악 켜짐",
+  bgmMutedLabel: "배경음악 음소거",
+
+  // QR HANDOFF
+  handoffHeading: "체험이 완료되었습니다.",
+  handoffCaption: "촬영한 사진을 저장하거나\n관심 제품을 저장하려면\nQR을 스캔해 주세요.",
+  downloadButton: "사진 저장하기",
+  restartButton: "처음으로",
+
+  // 카메라 / 합성 상태 문구
   cameraLoading: "카메라 준비 중...",
   cameraPermissionDenied: "카메라 접근이 필요합니다. 브라우저 권한을 확인해주세요.",
   cameraNotFound: "연결된 카메라를 찾을 수 없습니다.",
@@ -45,141 +74,377 @@ export const COPY = {
   cameraGenericError: "카메라를 시작하지 못했습니다.",
   cameraRetryButton: "다시 시도",
   cameraDeviceLabel: "카메라 선택",
-
-  resultSaveHeading: "당신의 순간이 도착했습니다",
-  saveMomentButton: "이 순간 저장하기",
-  saveMomentDone: "저장 완료",
-  saveProductButton: "관심 제품 저장하기",
-  saveProductDone: "관심 제품으로 저장됨",
-  galleryHeading: "오늘의 PORTAL 갤러리",
-  gallerySubline: "이 부스에서 저장된 순간들이에요",
-  qrLabel: "QR",
-  qrCaption: "매장 스태프에게 문의해 주세요 (연동 예정)",
-  restartButton: "처음으로",
+  segmentationLoading: "World를 준비하고 있습니다...",
+  segmentationError: "World를 준비하지 못했습니다. 다시 시도해주세요.",
 } as const;
 
 // -----------------------------------------------------------------------------
-// 2. 취향 입력 질문 — Step 2 "Guided" 화면의 버튼형 질문 2개
+// 2. 취향 입력 질문 — 03 MOOD / 04 TRAVEL STYLE 화면의 버튼형 질문
+//    라벨의 "\n" 은 2줄 표기용 줄바꿈입니다.
+//    ⚠️ 무드는 내부적으로 시간대(TimeOfDay), 여행 스타일은 공간 성격(SceneType)
+//       축으로 번역됩니다. 낮/노을/밤 같은 축 이름을 라벨에 넣지 마세요.
 // -----------------------------------------------------------------------------
 export const MOOD_QUESTION: QuestionDef<MoodKey> = {
   id: "mood",
-  prompt: "오늘 어떤 순간이 되고 싶나요?",
+  prompt: COPY.moodHeading,
   options: [
-    { key: "excitement", label: "설렘" },
-    { key: "confidence", label: "당당함" },
-    { key: "ease", label: "여유" },
-    { key: "dreamy", label: "몽환" },
+    { key: "light", label: "가볍고\n생기 있게" },
+    { key: "calm", label: "차분하고\n분위기 있게" },
+    { key: "bold", label: "강렬하고\n화려하게" },
   ],
 };
 
-export const COLOR_QUESTION: QuestionDef<ColorKey> = {
-  id: "color",
-  prompt: "함께할 제품의 색은?",
+export const JOURNEY_QUESTION: QuestionDef<JourneyKey> = {
+  id: "journey",
+  prompt: COPY.journeyHeading,
   options: [
-    { key: "pink", label: "핑크" },
-    { key: "black", label: "블랙" },
-    { key: "beige", label: "베이지" },
-    { key: "vivid", label: "비비드" },
+    { key: "explore", label: "도시 곳곳\n둘러보기" },
+    { key: "culture", label: "쇼핑·문화\n즐기기" },
+    { key: "relax", label: "여유롭게\n쉬기" },
   ],
 };
 
-export const QUESTIONS = [MOOD_QUESTION, COLOR_QUESTION];
+export const QUESTIONS = [MOOD_QUESTION, JOURNEY_QUESTION];
 
 // -----------------------------------------------------------------------------
-// 3. World 목록 — 실제 이미지가 없으므로 CSS 그라데이션으로 표현합니다.
-//    gradient 값은 CSS linear-gradient 문법을 그대로 사용합니다.
-//    textOn: 카드 위에 올라갈 글자색을 "light"(흰 글자) / "dark"(검정 글자) 중
-//    어떤 걸로 쓸지 지정합니다.
+// 3. World 목록 — World는 (도시 × 시간대 × 공간 성격) 으로 정의됩니다.
+//
+//    displayName : 06 리빌 화면의 대문자 표기
+//    timeOfDay   : 분위기(무드)가 반영되는 내부 축 — 화면에 노출하지 않습니다
+//    sceneType   : 여행 스타일이 반영되는 내부 축 — 화면에 노출하지 않습니다
+//    gradient    : CSS 배경용 문자열
+//    gradientStops: 07 캔버스 합성용 (gradient 와 같은 값을 유지해 주세요)
+//    backgroundImage: 실사 배경이 준비되면 "/worlds/{id}.webp" 를 넣으세요.
+//                     비어 있으면 gradient 로 폴백합니다.
+//    bgm         : "/bgm/{id}.mp3" — 파일이 없어도 앱은 무음으로 정상 동작합니다
+//
+//    ── 시간대 팔레트 규약 ──────────────────────────────────────────────────
+//    실사 배경이 없는 동안에도 timeOfDay 축이 눈에 보이도록, ACTIVE_WORLD_IDS 의
+//    World는 아래 규약을 따릅니다(180deg = 위 하늘 → 아래 지면).
+//
+//      day    : 전체적으로 밝게. 위는 차가운 하늘빛, 아래는 밝은 지면.  textOn: dark
+//      golden : 중간 밝기 + 강한 warm(앰버·테라코타). 위가 밝고 아래가 깊어짐. textOn: dark
+//      night  : 전체적으로 어둡게. 위는 거의 검정, 아래에 도시 광원만 은은하게. textOn: light
+//
+//    같은 night 안에서는 **색상(hue)** 으로 구분합니다 (NEW YORK = 강철빛+붉은 글로우,
+//    SEOUL = 보라+마젠타 네온). 새 World를 활성화할 때 이 규약에 맞춰 잡아주세요.
+//    ⚠️ textOn 은 resolveWorld 의 컬러웨이 보정에 쓰이므로 색을 바꿀 때 함께 바꾸면
+//       매핑 결과가 달라집니다 (바꿀 때는 매핑 표를 다시 확인하세요).
 // -----------------------------------------------------------------------------
 export const WORLDS: Record<WorldId, WorldDef> = {
   paris_dawn: {
     id: "paris_dawn",
+    displayName: "PARIS",
     name: "파리의 새벽",
     tagline: "안개 낀 새벽빛, 첫 만남의 설렘",
-    gradient: "linear-gradient(135deg, #f6d9e3 0%, #fbeadd 50%, #ffffff 100%)",
+    timeOfDay: "day",
+    sceneType: "culture",
+    // 한낮 — 차가운 하늘빛에서 밝은 석조 지면까지. 전체 고명도(안개 낀 대낮).
+    gradient:
+      "linear-gradient(180deg, #c9dcef 0%, #e4ecf3 40%, #f4efe6 72%, #e6d9c8 100%)",
+    gradientAngle: 180,
+    gradientStops: [
+      { offset: 0, color: "#c9dcef" },
+      { offset: 0.4, color: "#e4ecf3" },
+      { offset: 0.72, color: "#f4efe6" },
+      { offset: 1, color: "#e6d9c8" },
+    ],
+    bgm: "/bgm/paris_dawn.mp3",
     textOn: "dark",
   },
   santorini_breeze: {
     id: "santorini_breeze",
+    displayName: "SANTORINI",
     name: "산토리니 브리즈",
     tagline: "하얀 벽과 바람이 만드는 여유",
+    timeOfDay: "day",
+    sceneType: "leisure",
     gradient: "linear-gradient(135deg, #d9e8ef 0%, #eef2ea 50%, #f7f3ea 100%)",
+    gradientStops: [
+      { offset: 0, color: "#d9e8ef" },
+      { offset: 0.5, color: "#eef2ea" },
+      { offset: 1, color: "#f7f3ea" },
+    ],
+    bgm: "/bgm/santorini_breeze.mp3",
     textOn: "dark",
   },
   monaco_night: {
     id: "monaco_night",
+    displayName: "MONACO",
     name: "모나코의 밤",
     tagline: "블랙과 골드, 압도하는 존재감",
+    timeOfDay: "night",
+    sceneType: "leisure",
     gradient: "linear-gradient(135deg, #0b0b0d 0%, #23201a 55%, #8a7245 100%)",
+    gradientStops: [
+      { offset: 0, color: "#0b0b0d" },
+      { offset: 0.55, color: "#23201a" },
+      { offset: 1, color: "#8a7245" },
+    ],
+    bgm: "/bgm/monaco_night.mp3",
     textOn: "light",
   },
   newyork_attitude: {
     id: "newyork_attitude",
+    displayName: "NEW YORK",
     name: "뉴욕 애티튜드",
     tagline: "도시의 밤, 강렬하게 존재하는 나",
-    gradient: "linear-gradient(135deg, #1c1c1e 0%, #3a3a3c 50%, #b91c1c 100%)",
+    timeOfDay: "night",
+    sceneType: "street",
+    // 밤 — 검은 하늘 → 강철빛 건물 → 아래쪽에 붉은 가로등 글로우(뉴욕 시그니처).
+    gradient:
+      "linear-gradient(180deg, #090c12 0%, #182130 42%, #33262a 74%, #7d2a23 100%)",
+    gradientAngle: 180,
+    gradientStops: [
+      { offset: 0, color: "#090c12" },
+      { offset: 0.42, color: "#182130" },
+      { offset: 0.74, color: "#33262a" },
+      { offset: 1, color: "#7d2a23" },
+    ],
+    bgm: "/bgm/newyork_attitude.mp3",
     textOn: "light",
   },
   tokyo_mirage: {
     id: "tokyo_mirage",
+    displayName: "TOKYO",
     name: "도쿄 미라주",
     tagline: "현실과 환상 사이, 몽환의 도시",
+    timeOfDay: "night",
+    sceneType: "street",
     gradient: "linear-gradient(135deg, #0f0f14 0%, #3b2a5e 50%, #7c5cbf 100%)",
+    gradientStops: [
+      { offset: 0, color: "#0f0f14" },
+      { offset: 0.5, color: "#3b2a5e" },
+      { offset: 1, color: "#7c5cbf" },
+    ],
+    bgm: "/bgm/tokyo_mirage.mp3",
     textOn: "light",
   },
   milano_terrace: {
     id: "milano_terrace",
+    displayName: "MILANO",
     name: "밀라노 테라스",
     tagline: "나른한 오후 햇살, 우아한 여유",
-    gradient: "linear-gradient(135deg, #e9dcc9 0%, #d8c3a5 50%, #f5ede1 100%)",
+    timeOfDay: "golden",
+    sceneType: "leisure",
+    // 해 질 무렵 — 앰버 하늘에서 테라코타 지면까지. 밝지만 확실히 warm.
+    gradient:
+      "linear-gradient(180deg, #ffd79b 0%, #f8bd76 34%, #e79f61 68%, #c67a50 100%)",
+    gradientAngle: 180,
+    gradientStops: [
+      { offset: 0, color: "#ffd79b" },
+      { offset: 0.34, color: "#f8bd76" },
+      { offset: 0.68, color: "#e79f61" },
+      { offset: 1, color: "#c67a50" },
+    ],
+    bgm: "/bgm/milano_terrace.mp3",
     textOn: "dark",
   },
   seoul_neon: {
     id: "seoul_neon",
+    displayName: "SEOUL",
     name: "서울 네온",
     tagline: "빠르게 뛰는 심장, 도시의 빛",
-    gradient: "linear-gradient(135deg, #1a0b2e 0%, #5b21b6 45%, #ec4899 100%)",
+    timeOfDay: "night",
+    sceneType: "culture",
+    // 밤 — 같은 night 인 NEW YORK 과 색상으로 구분합니다(보라 → 마젠타 네온).
+    gradient:
+      "linear-gradient(180deg, #0a0615 0%, #221345 44%, #55206f 76%, #9d2a68 100%)",
+    gradientAngle: 180,
+    gradientStops: [
+      { offset: 0, color: "#0a0615" },
+      { offset: 0.44, color: "#221345" },
+      { offset: 0.76, color: "#55206f" },
+      { offset: 1, color: "#9d2a68" },
+    ],
+    bgm: "/bgm/seoul_neon.mp3",
     textOn: "light",
   },
   ibiza_sunset: {
     id: "ibiza_sunset",
+    displayName: "IBIZA",
     name: "이비자 선셋",
     tagline: "노을 아래 자유로운 리듬",
+    timeOfDay: "golden",
+    sceneType: "leisure",
     gradient: "linear-gradient(135deg, #ff9a56 0%, #ff6f91 50%, #6a3093 100%)",
+    gradientStops: [
+      { offset: 0, color: "#ff9a56" },
+      { offset: 0.5, color: "#ff6f91" },
+      { offset: 1, color: "#6a3093" },
+    ],
+    bgm: "/bgm/ibiza_sunset.mp3",
     textOn: "light",
   },
 };
 
+/**
+ * 이번 체험에서 실제로 사용할 World 목록.
+ *
+ * ⚠️ 임시값 — 회의에서 확정 예정입니다. **이 배열만 바꾸면** 결과 분포가 바뀝니다
+ * (resolveWorld 가 하드코딩 테이블이 아니라 속성 매칭으로 동작하기 때문).
+ * 배열 순서는 동점 시 우선순위로도 쓰이므로, 앞쪽에 둘 World가 더 자주 나옵니다.
+ */
+export const ACTIVE_WORLD_IDS: WorldId[] = [
+  "newyork_attitude",
+  "paris_dawn",
+  "milano_terrace",
+  "seoul_neon",
+];
+
 // -----------------------------------------------------------------------------
-// 4. 매핑 규칙 — (오늘의 순간, 제품 색) 답변 조합 → 대표 World + 추천 이유
-//    키 형식: `${moodKey}_${colorKey}`
-//    16개 조합을 전부 채워야 결과 화면이 항상 정상 동작합니다.
+// 4. World 결정 규칙
+//
+//    "예측되지 않지만 납득되는" 결과를 위해 조합별 하드코딩 테이블을 쓰지 않고,
+//    선택값을 내부 축으로 번역해 **속성 매칭 점수**로 World를 고릅니다.
+//    같은 선택은 항상 같은 결과가 나옵니다 (난수 없음).
+//
+//    1:1 고정이 아니라 우선순위 배열입니다. [0]번이 1순위, [1]번이 2순위.
 // -----------------------------------------------------------------------------
-export const WORLD_MAPPING: Record<string, WorldMappingEntry> = {
-  dreamy_pink: { worldId: "paris_dawn", reason: "핑크 + 몽환 → 안개 낀 파리의 새벽, 꿈결 같은 첫 걸음" },
-  excitement_pink: { worldId: "paris_dawn", reason: "핑크 + 설렘 → 부드러운 톤의 파리, 두근거리는 순간" },
-  ease_pink: { worldId: "santorini_breeze", reason: "핑크 + 여유 → 산토리니의 노을 아래 편안한 산책" },
-  confidence_pink: { worldId: "santorini_breeze", reason: "핑크 + 당당함 → 산토리니의 햇살, 나를 드러내는 순간" },
-
-  confidence_black: { worldId: "monaco_night", reason: "블랙 + 당당함 → 모나코의 밤, 시선을 압도하는 존재감" },
-  excitement_black: { worldId: "newyork_attitude", reason: "블랙 + 설렘 → 뉴욕의 심장, 짜릿한 도시의 밤" },
-  dreamy_black: { worldId: "tokyo_mirage", reason: "블랙 + 몽환 → 도쿄의 미라주, 현실과 환상 사이" },
-  ease_black: { worldId: "monaco_night", reason: "블랙 + 여유 → 모나코의 밤, 우아하게 머무는 시간" },
-
-  ease_beige: { worldId: "milano_terrace", reason: "베이지 + 여유 → 밀라노 테라스의 오후, 나른한 햇살" },
-  confidence_beige: { worldId: "milano_terrace", reason: "베이지 + 당당함 → 밀라노 테라스, 자신감 있는 우아함" },
-  dreamy_beige: { worldId: "santorini_breeze", reason: "베이지 + 몽환 → 산토리니의 안개, 부드럽게 흐려지는 경계" },
-  excitement_beige: { worldId: "milano_terrace", reason: "베이지 + 설렘 → 밀라노의 아침, 새로운 여정의 시작" },
-
-  excitement_vivid: { worldId: "seoul_neon", reason: "비비드 + 설렘 → 서울의 네온, 심장이 빠르게 뛰는 밤" },
-  confidence_vivid: { worldId: "newyork_attitude", reason: "비비드 + 당당함 → 뉴욕의 애티튜드, 강렬하게 존재하는 나" },
-  ease_vivid: { worldId: "ibiza_sunset", reason: "비비드 + 여유 → 이비자의 노을, 자유로운 리듬" },
-  dreamy_vivid: { worldId: "seoul_neon", reason: "비비드 + 몽환 → 서울의 네온 안개, 몽환적인 도시의 빛" },
+export const MOOD_TO_TIME: Record<MoodKey, TimeOfDay[]> = {
+  light: ["day", "golden"],
+  calm: ["golden", "day"],
+  bold: ["night", "golden"],
 };
 
+export const JOURNEY_TO_SCENE: Record<JourneyKey, SceneType[]> = {
+  explore: ["street", "culture"],
+  culture: ["culture", "street"],
+  relax: ["leisure", "culture"],
+};
+
+/** 1순위 축이 맞을 때 / 2순위 축이 맞을 때 / 컬러웨이 톤이 맞을 때의 가점. */
+const PRIMARY_MATCH = 3;
+const SECONDARY_MATCH = 1;
+const COLORWAY_MATCH = 1;
+
+function axisScore<T extends string>(value: T, priority: T[]): number {
+  if (value === priority[0]) return PRIMARY_MATCH;
+  if (value === priority[1]) return SECONDARY_MATCH;
+  return 0;
+}
+
+/** 블랙은 어두운 World(textOn: light), 핑크는 밝은 World(textOn: dark)와 어울립니다. */
+function colorwayScore(colorway: ColorwayKey, world: WorldDef): number {
+  if (colorway === "black" && world.textOn === "light") return COLORWAY_MATCH;
+  if (colorway === "pink" && world.textOn === "dark") return COLORWAY_MATCH;
+  return 0;
+}
+
+export function scoreWorld(
+  colorway: ColorwayKey,
+  mood: MoodKey,
+  journey: JourneyKey,
+  world: WorldDef
+): number {
+  return (
+    axisScore(world.timeOfDay, MOOD_TO_TIME[mood]) +
+    axisScore(world.sceneType, JOURNEY_TO_SCENE[journey]) +
+    colorwayScore(colorway, world)
+  );
+}
+
+/**
+ * (컬러웨이, 분위기, 여행 스타일) → World.
+ *
+ * 최고점 World를 반환하고, **동점이면 ACTIVE_WORLD_IDS 배열 순서상 앞선 것**을
+ * 고릅니다(`>` 비교라 뒤에 오는 동점자는 교체하지 않음). 난수를 쓰지 않으므로
+ * 같은 선택은 항상 같은 World가 나옵니다.
+ */
+export function resolveWorld(
+  colorway: ColorwayKey,
+  mood: MoodKey,
+  journey: JourneyKey
+): WorldId {
+  let bestId: WorldId = ACTIVE_WORLD_IDS[0];
+  let bestScore = -1;
+
+  for (const id of ACTIVE_WORLD_IDS) {
+    const score = scoreWorld(colorway, mood, journey, WORLDS[id]);
+    if (score > bestScore) {
+      bestScore = score;
+      bestId = id;
+    }
+  }
+
+  return bestId;
+}
+
+export const TIME_LABEL: Record<TimeOfDay, string> = {
+  day: "한낮",
+  golden: "해 질 무렵",
+  night: "밤",
+};
+
+function flatLabel(label: string): string {
+  return label.replace(/\n/g, " ");
+}
+
+/**
+ * "왜 이 World인지" 문장을 만듭니다.
+ *
+ * ⚠️ 지금은 화면에 렌더링하지 않습니다(노출 위치 회의 후 결정). 로그/검증용으로만
+ * 사용하세요. 한국어 조사(이/가, 을/를)가 라벨에 따라 틀어지므로 조사 없는
+ * 나열형 템플릿을 씁니다.
+ * 예) "차분하고 분위기 있게 · 쇼핑·문화 즐기기 — NEW YORK, 해 질 무렵"
+ */
+export function buildWorldReason(
+  mood: MoodKey,
+  journey: JourneyKey,
+  world: WorldDef
+): string {
+  const moodLabel = MOOD_QUESTION.options.find((o) => o.key === mood)?.label ?? "";
+  const journeyLabel =
+    JOURNEY_QUESTION.options.find((o) => o.key === journey)?.label ?? "";
+
+  return `${flatLabel(moodLabel)} · ${flatLabel(journeyLabel)} — ${world.displayName}, ${
+    TIME_LABEL[world.timeOfDay]
+  }`;
+}
+
+export interface MappingTableRow {
+  colorway: ColorwayKey;
+  mood: MoodKey;
+  journey: JourneyKey;
+  worldId: WorldId;
+  displayName: string;
+  reason: string;
+}
+
+/**
+ * 회의용 확인 유틸 — 전체 조합(컬러웨이 × 무드 × 여행 스타일)의 결과를 전수 출력합니다.
+ * 개발 모드에서 브라우저 콘솔에 다음과 같이 확인할 수 있습니다.
+ *
+ *   console.table(window.__portalMappingTable())
+ */
+export function debugMappingTable(): MappingTableRow[] {
+  const colorways = PRODUCTS.flatMap((p) => p.colorways.map((c) => c.key));
+  const uniqueColorways = Array.from(new Set(colorways));
+  const rows: MappingTableRow[] = [];
+
+  for (const colorway of uniqueColorways) {
+    for (const mood of MOOD_QUESTION.options) {
+      for (const journey of JOURNEY_QUESTION.options) {
+        const worldId = resolveWorld(colorway, mood.key, journey.key);
+        const world = WORLDS[worldId];
+        rows.push({
+          colorway,
+          mood: mood.key,
+          journey: journey.key,
+          worldId,
+          displayName: world.displayName,
+          reason: buildWorldReason(mood.key, journey.key, world),
+        });
+      }
+    }
+  }
+
+  return rows;
+}
+
 // -----------------------------------------------------------------------------
-// 5. 대안 World — 결과 화면에서 대표 World와 함께 보여줄 2개.
-//    자기 자신을 제외한 다른 World 2개를 지정해 주세요.
+// 5. 대안 World — 미러 화면의 "다른 세계도 보기" 안건이 확정되면 되살립니다.
+//    현재 화면에서는 렌더링하지 않지만 설정은 남겨둡니다.
 // -----------------------------------------------------------------------------
 export const WORLD_ALTERNATES: Record<WorldId, [WorldId, WorldId]> = {
   paris_dawn: ["santorini_breeze", "tokyo_mirage"],
@@ -192,10 +457,16 @@ export const WORLD_ALTERNATES: Record<WorldId, [WorldId, WorldId]> = {
   ibiza_sunset: ["seoul_neon", "milano_terrace"],
 };
 
+export function getAlternateWorlds(worldId: WorldId): [WorldDef, WorldDef] {
+  const [a, b] = WORLD_ALTERNATES[worldId];
+  return [WORLDS[a], WORLDS[b]];
+}
+
 // -----------------------------------------------------------------------------
-// 6. 카메라 설정 — 미러(4단계) 화면에서 웹캠을 켤 때 쓰는 값.
+// 6. 카메라 설정 — 07 화면에서 웹캠을 켤 때 쓰는 값.
 //    width/height: 요청 해상도 (부스 PC 성능에 맞춰 낮추면 더 부드럽게 동작).
 //    mirror: 좌우 반전 여부. 셀피처럼 보이도록 기본 true 권장.
+//            (반전은 합성된 인물 레이어에만 한 번 적용됩니다 — 배경은 반전 안 됨)
 // -----------------------------------------------------------------------------
 export const CAMERA_CONFIG = {
   width: 1280,
@@ -204,20 +475,69 @@ export const CAMERA_CONFIG = {
 } as const;
 
 // -----------------------------------------------------------------------------
-// 헬퍼 — 컴포넌트에서 바로 쓰는 조회 함수들. 이 아래는 보통 수정할 필요 없음.
+// 7. 세그멘테이션(인물 분리) 설정
+//    modelSelection: 0=general, 1=landscape(가로 화면용, 더 빠름)
+//    featherPx: 마스크 가장자리 blur 강도. 0이면 비활성(칼로 자른 느낌).
+//    assetBasePath: wasm/모델 파일 위치. CDN 대신 자가 호스팅 경로를 씁니다
+//                   (매장 네트워크가 불안정해도 화면이 떠야 하므로).
+//    maxCanvasWidth: 합성 캔버스 최대 폭(px). 화면이 더 넓으면 이 값으로 줄여
+//                    프레임률을 지킵니다. 촬영 결과 해상도도 이 값을 따릅니다.
 // -----------------------------------------------------------------------------
-export function getWorldMapping(mood: MoodKey, color: ColorKey): WorldMappingEntry {
-  const key = `${mood}_${color}`;
-  const entry = WORLD_MAPPING[key];
-  if (!entry) {
-    // 매핑 누락 시 안전하게 첫 번째 World로 대체합니다 (개발 중 방어 코드).
-    const fallbackId = Object.keys(WORLDS)[0] as WorldId;
-    return { worldId: fallbackId, reason: "당신만의 세계를 찾았습니다" };
-  }
-  return entry;
-}
+export const SEGMENTATION_CONFIG = {
+  modelSelection: 1,
+  featherPx: 2,
+  assetBasePath: "/mediapipe/selfie_segmentation",
+  maxCanvasWidth: 1600,
+} as const;
 
-export function getAlternateWorlds(worldId: WorldId): [WorldDef, WorldDef] {
-  const [a, b] = WORLD_ALTERNATES[worldId];
-  return [WORLDS[a], WORLDS[b]];
-}
+// -----------------------------------------------------------------------------
+// 7-1. 인물 분리 방식 — 지금은 세그멘테이션, 부스 제작 시 그린 스크린 크로마키
+//
+// 실측된 현상: 인물이 움직이면 경계가 미세하게 흔들리고 그 틈으로 **실제 배경이
+// 살짝 비칩니다.** SelfieSegmentation 이 프레임마다 마스크를 새로 추정하기 때문에
+// 생기는 구조적 한계라, featherPx 로 완화만 되고 원인은 남습니다.
+//
+// → 부스를 제작할 때 뒤에 **그린 스크린**을 세우고 색상 키잉으로 교체할 예정입니다.
+//   색이라는 고정 기준으로 자르면 매 프레임 같은 판정이 나와 경계가 흔들리지 않습니다.
+//
+// ⚠️ mode: "chromakey" 는 **아직 구현되지 않았습니다.** 값을 바꿔도 지금은
+//    세그멘테이션으로 계속 동작하고 콘솔 경고만 남습니다(부스에서 화면이 죽는 것이
+//    최악이므로 의도적으로 폴백). 구현할 때 손볼 파일과 순서는
+//    README "다음 단계: 그린 스크린 크로마키" 에 정리해뒀습니다.
+// -----------------------------------------------------------------------------
+export const MATTING_CONFIG = {
+  mode: "segmentation" as MattingMode,
+  /** mode: "chromakey" 로 전환할 때 쓸 값들 (OBS 크로마키와 같은 의미). */
+  chromaKey: {
+    /** 그린 스크린 원단 색. 부스 조명 아래서 실측한 값으로 교체하세요. */
+    keyColor: "#00b140",
+    /** 배경으로 간주할 색 거리 (0~1). 높이면 더 많이 지웁니다. */
+    similarity: 0.4,
+    /** 경계 부드러움 (0~1). 세그멘테이션의 featherPx 와 같은 역할. */
+    smoothness: 0.08,
+    /** 인물에 반사된 초록빛(스필) 제거 강도 (0~1). */
+    spill: 0.1,
+  },
+} as const;
+
+// -----------------------------------------------------------------------------
+// 8. Ripple 전환 설정
+//    stepMs: 02→03, 03→04 중간 전환 (퍼지면서 사라짐)
+//    finalMs: 04→05 화면 전체를 덮는 전환
+//    color: 05 배경(paper)과 동일해야 이음매 없이 이어집니다
+// -----------------------------------------------------------------------------
+export const RIPPLE_CONFIG = {
+  stepMs: 420,
+  finalMs: 700,
+  color: "#faf8f5",
+} as const;
+
+// -----------------------------------------------------------------------------
+// 9. BGM 설정 — 음원은 public/bgm/{worldId}.mp3 규약으로 넣어주세요.
+//    파일이 없으면 콘솔 경고만 남기고 무음으로 동작합니다.
+// -----------------------------------------------------------------------------
+export const BGM_CONFIG = {
+  volume: 0.5,
+  fadeInMs: 1200,
+  fadeOutMs: 600,
+} as const;
