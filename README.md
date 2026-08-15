@@ -242,3 +242,102 @@ MATTING_CONFIG = {
   (`WORLDS[].backgroundImage`)이 들어와야 살아납니다.
 - BGM 음원 미확보 — 재생 경로만 검증 가능합니다.
 - 대화형 AI 음성 컨시어지는 이번 범위에서 제외됐습니다 (취향 입력은 버튼 선택).
+
+---
+
+## 변경 이력 — Step 3 이후 추가 작업
+
+프로토타입(피그마 확정안)에 맞춰 아래 작업을 추가했습니다. 요약하면 **(1) 촬영 이후
+플로우를 3화면 늘리고, (2) 누끼(인물 분리) 품질을 소프트웨어로 개선하고, (3) World·UI
+실사 배경을 AI로 생성하는 파이프라인을 붙이고, (4) 시작 화면을 목업 톤으로 리디자인**했습니다.
+
+### 1. 촬영 이후 플로우 확장 (촬영 → 사진 확인 → QR → 관심 제품)
+
+기존에는 `07 EXPERIENCE → QR HANDOFF` 로 바로 끝났습니다. 목업대로 촬영한 사진을
+크게 확인하고 관심 제품까지 이어지도록 **세 화면**을 추가/재구성했습니다.
+
+```
+07 EXPERIENCE(촬영)
+  → 09 YOUR MCM MOMENT (촬영 사진 크게 보기)      components/StepMoment.tsx  [신규]
+  → 08 QR HANDOFF     (QR + 사진 저장)            components/StepHandoff.tsx [재정리]
+  → SHOP              (TODAY'S MCM + SAVED ITEMS)  components/StepShop.tsx    [신규]
+  → 처음으로(RESET)
+```
+
+- **StepMoment (09)** — `state.capturedImage` 를 화면 가득 보여주고 "다음"으로 넘어갑니다.
+- **StepHandoff (08)** — 사진은 앞 화면에서 이미 크게 봤으므로 QR 중심으로 정리하고,
+  "다음" 버튼으로 SHOP 으로 넘어갑니다. (기존 QR 생성·`stopBgm`·`qr_displayed` 로직 유지)
+- **StepShop** — 왼쪽 **TODAY'S MCM**(선택 제품 + 가격 + `관심 제품 저장하기 ♥`),
+  오른쪽 **SAVED ITEMS**(관심 목록). "처음으로" 로 다음 고객을 위해 초기화합니다.
+
+상태 전환은 기존 규약(리듀서가 예상 단계에서만 전환)을 그대로 따릅니다.
+`lib/FlowContext.tsx` 에 액션 `SHOW_QR`(moment→handoff), `SHOW_SHOP`(handoff→shop) 을
+추가했고, `CAPTURE` 의 목적지를 `handoff` → `moment` 로 바꿨습니다.
+
+> ⚠️ **SAVED ITEMS 는 현재 샘플 데이터**입니다(`config/products.config.ts` 의 `SAVED_ITEMS`).
+> 실제 위시리스트 연동 전까지 고정 노출되며, 제품 사진이 없으면 색 플레이스홀더로 폴백합니다.
+> TODAY'S MCM 가격도 `PRODUCTS[].price` 예시값(₩1,290,000)이니 실제 값으로 교체하세요.
+
+### 2. 누끼(세그멘테이션) 가장자리 개선
+
+"경계가 흔들리고 그 틈으로 배경이 비치는" 문제를 소프트웨어로 완화했습니다(근본 해결책인
+그린 스크린 크로마키 계획은 그대로 유효합니다). `lib/composite.ts` 의 `drawPersonLayer` 가
+마스크를 깔 때 **blur(부드럽게) + brightness(경계 안쪽으로 깎기) + contrast(반투명 띠 제거)**
+를 조합하도록 바꿨고, 값은 `config/portal.config.ts` 의 `SEGMENTATION_CONFIG` 에서 조절합니다.
+
+```ts
+// SEGMENTATION_CONFIG 에 추가된 노브
+maskErode: 0.85,   // 경계를 안쪽으로 깎는 정도(밝기 배율). 1=끔. 낮출수록 뒷배경 테두리 제거 (권장 0.8~0.95)
+maskContrast: 400, // 반투명 경계 띠를 사람/배경으로 미는 세기(%). 100=끔. 높을수록 배경 비침 제거 (권장 300~500)
+```
+
+배경이 여전히 비치면 `maskContrast` 를, 사람 윤곽이 너무 얇아지면 `maskErode` 를 조정하세요.
+움직임 떨림이 크면 `SEGMENTATION_CONFIG.modelSelection` 을 `1`(landscape) → `0`(general) 로
+바꿔 비교해볼 수 있습니다.
+
+### 3. World·UI 실사 배경 AI 생성 파이프라인
+
+`WORLDS[].backgroundImage` 자리에 넣을 실사 배경을 OpenAI 이미지 모델(`gpt-image-2`)로
+일괄 생성하는 스크립트를 추가했습니다.
+
+- **`scripts/generate-images.mjs`** — 의존성 없이(내장 fetch) 실행. World 배경 + UI 이미지를
+  한 번에 생성해 `public/` 아래 알맞은 경로(`worlds/`, `ui/`)로 저장합니다.
+
+  ```bash
+  export OPENAI_API_KEY="sk-..."
+  node scripts/generate-images.mjs                 # 전체 생성
+  node scripts/generate-images.mjs intro-window    # 특정 이미지 1개만
+  ```
+
+  각 프롬프트에 "인물·텍스트 없음 + (배경은) 아래-가운데 비우기 + 시간대 팔레트"를
+  명시해 07 합성 배경으로 바로 쓸 수 있게 했습니다.
+- `config/portal.config.ts` 의 활성 4개 World(`newyork_attitude`, `paris_dawn`,
+  `milano_terrace`, `seoul_neon`)에 `backgroundImage: "/worlds/{id}.webp"` 경로를 켰습니다.
+  파일이 없으면 기존대로 gradient 로 폴백하므로 지금 켜둬도 안전합니다.
+
+### 4. 01 START 화면 리디자인
+
+`components/StepIntro.tsx` 를 목업 톤(빈티지 여행/여권)에 맞춰 다시 만들었습니다. 비행기
+창문 배경(`/ui/intro-window.webp`, 없으면 노을 그라데이션 폴백) 위에 종이빛 카드 + 골드
+엠블럼 + 우표 스탬프 + `PORTAL 시작하기` 버튼. 오디오 언락(`unlockAudio`)은 클릭 핸들러
+안에서 동기 호출하는 기존 규약을 그대로 유지했습니다.
+
+### 변경/추가 파일 요약
+
+| 파일 | 변경 |
+|---|---|
+| `components/StepMoment.tsx` | **신규** — 09 YOUR MCM MOMENT (촬영 사진 확인) |
+| `components/StepShop.tsx` | **신규** — TODAY'S MCM + SAVED ITEMS |
+| `scripts/generate-images.mjs` | **신규** — 배경/UI 이미지 일괄 생성(gpt-image-2) |
+| `CLAUDE.md` | **신규** — 로컬 Claude Code용 프로젝트 가이드 |
+| `components/StepIntro.tsx` | 시작 화면 빈티지 리디자인 |
+| `components/StepHandoff.tsx` | QR 중심 재정리 + SHOP 으로 넘어가는 "다음" |
+| `components/PortalApp.tsx` | `moment` / `shop` 스텝 렌더 연결 |
+| `lib/FlowContext.tsx` | `SHOW_QR` / `SHOW_SHOP` 액션, `CAPTURE`→`moment` |
+| `lib/composite.ts` | `drawPersonLayer` 마스크 가장자리 정리(`buildMaskFilter`) |
+| `lib/types.ts` | `StepId` 에 `moment`·`shop`, `Product.price`, `SavedItem` 타입 |
+| `config/portal.config.ts` | 활성 World `backgroundImage` 켜기, 누끼 노브, 새 화면 COPY |
+| `config/products.config.ts` | `price` 추가, `SAVED_ITEMS` 샘플 추가 |
+
+> 참고: README 상단의 "플로우 (8화면)" 표는 촬영 이후 흐름이 위와 같이 늘어나면서
+> 최신이 아닙니다. 실제 순서는 `07 EXPERIENCE → 09 MOMENT → 08 QR → SHOP` 입니다.

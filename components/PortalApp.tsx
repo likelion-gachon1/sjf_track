@@ -10,10 +10,12 @@ import StepHandoff from "./StepHandoff";
 import StepIntro from "./StepIntro";
 import StepJourney from "./StepJourney";
 import StepMirror from "./StepMirror";
+import StepMoment from "./StepMoment";
 import StepMood from "./StepMood";
 import StepOpening from "./StepOpening";
 import StepProduct from "./StepProduct";
 import StepReveal from "./StepReveal";
+import StepShop from "./StepShop";
 
 function PortalScreens() {
   const { state } = usePortalFlow();
@@ -28,7 +30,9 @@ function PortalScreens() {
       {state.step === "opening" && <StepOpening />}
       {state.step === "reveal" && <StepReveal />}
       {state.step === "experience" && <StepMirror />}
+      {state.step === "moment" && <StepMoment />}
       {state.step === "handoff" && <StepHandoff />}
+      {state.step === "shop" && <StepShop />}
     </FadeStep>
   );
 }

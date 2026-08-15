@@ -53,6 +53,8 @@ type FlowAction =
   | { type: "RESOLVE_WORLD"; worldId: WorldId }
   | { type: "ENTER_PORTAL" }
   | { type: "CAPTURE"; dataUrl: string }
+  | { type: "SHOW_QR" }
+  | { type: "SHOW_SHOP" }
   | { type: "TOGGLE_BGM_MUTE" }
   | { type: "CHANGE_WORLD"; worldId: WorldId }
   | { type: "SAVE_PRODUCT_INTEREST" }
@@ -120,9 +122,19 @@ function flowReducer(state: FlowState, action: FlowAction): FlowState {
         capturedAt,
         capturedImage: action.dataUrl,
         savedMoments: [...state.savedMoments, moment],
-        step: "handoff",
+        step: "moment",
       };
     }
+
+    case "SHOW_QR":
+      // 09 사진 확인 → 08 QR
+      if (state.step !== "moment") return state;
+      return { ...state, step: "handoff" };
+
+    case "SHOW_SHOP":
+      // 08 QR → TODAY'S MCM / SAVED ITEMS
+      if (state.step !== "handoff") return state;
+      return { ...state, step: "shop" };
 
     case "TOGGLE_BGM_MUTE":
       return { ...state, bgmMuted: !state.bgmMuted };

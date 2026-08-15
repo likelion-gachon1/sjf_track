@@ -39,7 +39,9 @@ export type StepId =
   | "opening" // 05 PORTAL OPENING (프리로드 구간)
   | "reveal" // 06 WORLD REVEAL
   | "experience" // 07 EXPERIENCE
-  | "handoff"; // QR HANDOFF
+  | "moment" // 09 YOUR MCM MOMENT (촬영 사진 확인)
+  | "handoff" // 08 QR HANDOFF
+  | "shop"; // TODAY'S MCM + SAVED ITEMS
 
 /**
  * 인물을 배경에서 분리하는 방식.
@@ -79,7 +81,25 @@ export interface Product {
   name: string;
   /** "in Visetos" */
   line: string;
+  /** 원화 정가 — TODAY'S MCM 카드에 표기. 없으면 가격을 숨깁니다. */
+  price?: number;
   colorways: Colorway[];
+}
+
+/**
+ * SAVED ITEMS(관심 제품) 목록에 보여줄 샘플 아이템.
+ * ⚠️ 프로토타입용 예시 데이터입니다 — 실제 위시리스트 연동 전까지 고정 노출됩니다.
+ */
+export interface SavedItem {
+  id: string;
+  /** "Aren Crossbody" */
+  name: string;
+  /** "Black" 처럼 카드 하단 보조 표기 */
+  line: string;
+  /** 이미지 없을 때의 플레이스홀더 색. */
+  hex: string;
+  /** /products/*.png (없으면 hex 플레이스홀더) */
+  image?: string;
 }
 
 export interface WorldDef {

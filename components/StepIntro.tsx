@@ -6,6 +6,9 @@ import { createSessionId, usePortalFlow } from "@/lib/FlowContext";
 import { usePortalRuntime } from "@/lib/PortalRuntime";
 
 // 01 START
+// 목업 기준: 비행기 창문 밖 노을 배경 위에 MCM 엠블럼 → 타이틀 → 서브라인 →
+// 동의 체크 → 시작 버튼. 배경 이미지(/ui/intro-window.webp)가 없으면 따뜻한
+// 노을 그라데이션으로 폴백합니다(앱이 깨지지 않도록).
 export default function StepIntro() {
   const { state, dispatch } = usePortalFlow();
   const runtime = usePortalRuntime();
@@ -24,48 +27,84 @@ export default function StepIntro() {
   }
 
   return (
-    <div className="relative flex h-full min-h-screen flex-col items-center justify-center bg-ink px-8 text-center text-white">
-      <span className="absolute right-10 top-10 text-xs tracking-widest2 text-white/60">
-        {COPY.wordmark}
-      </span>
+    <div
+      className="relative flex h-full min-h-screen flex-col items-center justify-center overflow-hidden bg-cover bg-center px-8 text-center"
+      style={{
+        // 실사 배경이 준비되면 사용, 없으면 따뜻한 노을 그라데이션으로 폴백.
+        backgroundImage:
+          "linear-gradient(180deg, rgba(20,14,8,0.28) 0%, rgba(20,14,8,0.05) 30%, rgba(20,14,8,0.10) 100%), url(/ui/intro-window.webp), linear-gradient(180deg, #cfe0ea 0%, #f4e2c4 46%, #e9b878 74%, #b9793f 100%)",
+      }}
+    >
+      {/* 빈티지 스탬프 — 좌상/우하 코너 장식 (에셋 없이 CSS 로 목업) */}
+      <Stamp className="left-8 top-8 -rotate-12" label="MCM · AVANTURE" />
+      <Stamp className="bottom-8 right-8 rotate-6" label="PORTAL · 2026" />
 
-      <h1 className="font-serif text-7xl tracking-wide">{COPY.brandName}</h1>
+      {/* 가독성용 종이빛 카드 배경 */}
+      <div className="relative flex flex-col items-center rounded-3xl bg-paper/70 px-16 py-14 backdrop-blur-sm shadow-[0_20px_60px_-30px_rgba(0,0,0,0.5)]">
+        <Emblem />
 
-      <p className="mt-10 whitespace-pre-line text-lg leading-relaxed text-white/85">
-        {COPY.introTagline}
-      </p>
-      <p className="mt-6 whitespace-pre-line text-sm leading-relaxed text-white/45">
-        {COPY.introSubline}
-      </p>
+        <h1 className="mt-6 font-serif text-6xl tracking-wide text-ink">
+          {COPY.brandName}
+        </h1>
 
-      <label className="mt-14 flex cursor-pointer items-center gap-3 text-sm text-white/70">
-        <input
-          type="checkbox"
-          checked={state.consent}
-          onChange={(e) => dispatch({ type: "SET_CONSENT", value: e.target.checked })}
-          className="h-4 w-4 accent-accent"
-        />
-        {COPY.consentLabel}
-      </label>
+        <p className="mt-5 text-base leading-relaxed text-ink/70">
+          MCM과 함께, 새로운 세계로.
+        </p>
 
-      <button
-        type="button"
-        disabled={!state.consent}
-        onClick={handleStart}
-        className={[
-          "mt-8 flex items-center gap-4 rounded-full border px-12 py-3.5 text-sm tracking-widest transition-colors",
-          state.consent
-            ? "border-white/70 text-white hover:bg-white/10"
-            : "cursor-not-allowed border-white/20 text-white/30",
-        ].join(" ")}
-      >
-        {COPY.startButton}
-        <ArrowRight />
-      </button>
+        <label className="mt-10 flex cursor-pointer items-center gap-3 text-sm text-ink/60">
+          <input
+            type="checkbox"
+            checked={state.consent}
+            onChange={(e) => dispatch({ type: "SET_CONSENT", value: e.target.checked })}
+            className="h-4 w-4 accent-accent"
+          />
+          {COPY.consentLabel}
+        </label>
 
-      <span className="absolute bottom-10 text-xs tracking-widest2 text-white/40">
-        {COPY.wordmark}
-      </span>
+        <button
+          type="button"
+          disabled={!state.consent}
+          onClick={handleStart}
+          className={[
+            "mt-8 flex items-center gap-4 rounded-full px-12 py-4 text-sm tracking-widest transition-colors",
+            state.consent
+              ? "bg-ink text-white hover:bg-ink/85"
+              : "cursor-not-allowed bg-ink/20 text-white/50",
+          ].join(" ")}
+        >
+          PORTAL 시작하기
+          <ArrowRight />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// MCM 을 상징하는 골드 엠블럼 자리 (실제 로고 에셋으로 교체 가능).
+function Emblem() {
+  return (
+    <svg width="52" height="52" viewBox="0 0 52 52" fill="none" aria-hidden>
+      <circle cx="26" cy="26" r="24" stroke="#b08d57" strokeWidth="1.2" />
+      <path
+        d="M26 12l4 9 9 1-6.5 6 1.7 9-8.2-4.6L17.5 47l1.7-9L12.7 22l9-1z"
+        fill="#b08d57"
+        opacity="0.9"
+        transform="scale(0.7) translate(11 6)"
+      />
+      <path d="M14 26h24" stroke="#b08d57" strokeWidth="0.8" opacity="0.5" />
+    </svg>
+  );
+}
+
+function Stamp({ className, label }: { className?: string; label: string }) {
+  return (
+    <div
+      className={[
+        "pointer-events-none absolute flex h-24 w-24 items-center justify-center rounded-full border-2 border-accent/40 text-[9px] font-medium uppercase tracking-widest text-accent/50",
+        className ?? "",
+      ].join(" ")}
+    >
+      <span className="max-w-[70%] text-center leading-tight">{label}</span>
     </div>
   );
 }

@@ -127,16 +127,33 @@ export function drawWorldBackground(
  * useSegmentation 루프가 useChromaKey 로 대체되고, 나머지 파이프라인은 그대로
  * 재사용됩니다. 자세한 순서는 README "다음 단계: 그린 스크린 크로마키" 참고.
  */
+/**
+ * 세그멘테이션 마스크 가장자리 정리용 CSS filter 문자열.
+ * SEGMENTATION_CONFIG 값으로 blur(부드럽게) + brightness(안쪽 깎기) + contrast(배경 비침 제거)를 조합합니다.
+ */
+function buildMaskFilter(): string {
+  const { featherPx, maskErode, maskContrast } = SEGMENTATION_CONFIG;
+  const parts: string[] = [];
+  if (featherPx > 0) parts.push(`blur(${featherPx}px)`);
+  if (maskErode !== 1) parts.push(`brightness(${maskErode})`);
+  if (maskContrast !== 100) parts.push(`contrast(${maskContrast}%)`);
+  return parts.length > 0 ? parts.join(" ") : "none";
+}
+
 export function drawPersonLayer(
   personCtx: CanvasRenderingContext2D,
   results: Results,
   width: number,
   height: number
 ): void {
-  // 1) 마스크를 알파 채널로 깔기 (가장자리는 blur 로 부드럽게)
+  // 1) 마스크를 알파 채널로 깔기.
+  //    blur           = 경계를 부드럽게(계단현상 완화)
+  //    brightness(<1) = 경계를 안쪽으로 살짝 깎아 뒷배경 테두리 제거 (erode)
+  //    contrast(높게) = 반투명 회색 띠를 사람/배경 둘 중 하나로 확실히 밀어
+  //                     "가장자리로 배경이 비치는" 현상 제거
+  //    → 값은 config/portal.config.ts 의 SEGMENTATION_CONFIG 에서 조절합니다.
   personCtx.globalCompositeOperation = "copy";
-  personCtx.filter =
-    SEGMENTATION_CONFIG.featherPx > 0 ? `blur(${SEGMENTATION_CONFIG.featherPx}px)` : "none";
+  personCtx.filter = buildMaskFilter();
   drawCover(personCtx, results.segmentationMask, width, height);
   personCtx.filter = "none";
 

@@ -59,11 +59,23 @@ export const COPY = {
   bgmOnLabel: "배경음악 켜짐",
   bgmMutedLabel: "배경음악 음소거",
 
+  // 09 YOUR MCM MOMENT (촬영 사진 확인)
+  momentEyebrow: "YOUR MCM MOMENT",
+  momentCaption: "당신의 MCM 순간이 완성되었습니다.",
+  momentNext: "다음",
+
   // QR HANDOFF
   handoffHeading: "체험이 완료되었습니다.",
   handoffCaption: "촬영한 사진을 저장하거나\n관심 제품을 저장하려면\nQR을 스캔해 주세요.",
   downloadButton: "사진 저장하기",
+  handoffNext: "다음",
   restartButton: "처음으로",
+
+  // TODAY'S MCM / SAVED ITEMS (마지막 화면)
+  todaysHeading: "TODAY'S MCM",
+  savedHeading: "SAVED ITEMS",
+  saveInterestButton: "관심 제품 저장하기",
+  savedInterestButton: "관심 제품에 저장되었습니다!",
 
   // 카메라 / 합성 상태 문구
   cameraLoading: "카메라 준비 중...",
@@ -149,6 +161,7 @@ export const WORLDS: Record<WorldId, WorldDef> = {
       { offset: 0.72, color: "#f4efe6" },
       { offset: 1, color: "#e6d9c8" },
     ],
+    backgroundImage: "/worlds/paris_dawn.webp",
     bgm: "/bgm/paris_dawn.mp3",
     textOn: "dark",
   },
@@ -201,6 +214,7 @@ export const WORLDS: Record<WorldId, WorldDef> = {
       { offset: 0.74, color: "#33262a" },
       { offset: 1, color: "#7d2a23" },
     ],
+    backgroundImage: "/worlds/newyork_attitude.webp",
     bgm: "/bgm/newyork_attitude.mp3",
     textOn: "light",
   },
@@ -237,6 +251,7 @@ export const WORLDS: Record<WorldId, WorldDef> = {
       { offset: 0.68, color: "#e79f61" },
       { offset: 1, color: "#c67a50" },
     ],
+    backgroundImage: "/worlds/milano_terrace.webp",
     bgm: "/bgm/milano_terrace.mp3",
     textOn: "dark",
   },
@@ -257,6 +272,7 @@ export const WORLDS: Record<WorldId, WorldDef> = {
       { offset: 0.76, color: "#55206f" },
       { offset: 1, color: "#9d2a68" },
     ],
+    backgroundImage: "/worlds/seoul_neon.webp",
     bgm: "/bgm/seoul_neon.mp3",
     textOn: "light",
   },
@@ -486,6 +502,15 @@ export const CAMERA_CONFIG = {
 export const SEGMENTATION_CONFIG = {
   modelSelection: 1,
   featherPx: 2,
+  // ── 누끼(마스크 가장자리) 품질 개선 노브 ──────────────────────────────────
+  //   실측 현상: 경계의 반투명 띠로 실제 뒷배경이 살짝 비치고, 움직이면 흔들립니다.
+  //   아래 두 값이 그 띠를 정리합니다. (lib/composite.ts buildMaskFilter 에서 사용)
+  //   maskErode   : 경계를 안쪽으로 깎는 정도(밝기 배율). 1=끔. 낮출수록 더 깎아
+  //                 뒷배경 테두리를 제거하지만, 너무 낮추면 사람 윤곽이 얇아집니다. (권장 0.8~0.95)
+  //   maskContrast: 반투명 경계 띠를 사람/배경으로 밀어내는 세기(%). 100=끔.
+  //                 높일수록 배경 비침이 확실히 사라집니다. (권장 300~500)
+  maskErode: 0.85,
+  maskContrast: 400,
   assetBasePath: "/mediapipe/selfie_segmentation",
   maxCanvasWidth: 1600,
 } as const;
