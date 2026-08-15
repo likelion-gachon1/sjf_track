@@ -341,3 +341,30 @@ maskContrast: 400, // 반투명 경계 띠를 사람/배경으로 미는 세기(
 
 > 참고: README 상단의 "플로우 (8화면)" 표는 촬영 이후 흐름이 위와 같이 늘어나면서
 > 최신이 아닙니다. 실제 순서는 `07 EXPERIENCE → 09 MOMENT → 08 QR → SHOP` 입니다.
+
+---
+
+## 백엔드 연동 (촬영 결과 저장 · QR)
+
+백엔드(`sjf_BE`)의 `docs/API_SPEC.md` 규격에 맞춰 촬영 결과를 서버에 저장하고,
+QR로 이어지는 모바일 결과 페이지를 연결했습니다. 백엔드 서버가 꺼져 있어도
+업로드 실패 시 임시 QR로 폴백하므로 앱은 그대로 동작합니다.
+
+- 촬영 직후(`09 MOMENT` 진입) 합성 JPEG + 선택값을 `POST /api/v1/sessions` 로 전송
+- 응답으로 받은 `shareUrl` 로 QR 생성 (기존 임시 URL 대체)
+- QR을 스캔하면 열리는 `/m/{sessionId}` 모바일 결과 페이지에서
+  `GET /api/v1/sessions/{sessionId}` 로 사진 조회·저장
+
+### 변경/추가 파일
+
+| 파일 | 변경 |
+|---|---|
+| `lib/api.ts` | **신규** — `uploadSession` / `fetchSession`, dataURL→Blob 변환, API 주소 관리 |
+| `app/m/[sessionId]/page.tsx` | **신규** — QR로 열리는 모바일 결과 페이지 |
+| `components/StepMoment.tsx` | 촬영 직후 서버 업로드 후 `shareUrl` 저장 |
+| `components/StepHandoff.tsx` | 받은 `shareUrl` 로 QR 생성(없으면 임시 URL 폴백) |
+| `lib/FlowContext.tsx` | `shareUrl` 상태 + `SET_SHARE_URL` 액션 추가 |
+| `.env.local` | `NEXT_PUBLIC_API_BASE` (백엔드 주소, git 제외) |
+
+> 로컬 테스트 시 백엔드 `ALLOWED_ORIGINS` 에 `http://localhost:3000` 허용 필요.
+> 폰/배포 테스트는 백엔드 `FRONTEND_BASE_URL`·`PUBLIC_API_BASE_URL` 을 실제 IP/도메인으로 변경.
