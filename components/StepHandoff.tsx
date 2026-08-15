@@ -22,11 +22,13 @@ export default function StepHandoff() {
 
   // ⚠️ 임시 URL — /m/{sessionId} 모바일 라우트는 아직 구현되지 않았습니다(다음 단계).
   const handoffUrl = useMemo(() => {
+    // 백엔드에서 받은 공유 URL 이 있으면 그것을 쓰고, 없으면(업로드 실패 등) 임시 URL 로 폴백합니다.
+    if (state.shareUrl) return state.shareUrl;
     const host =
       process.env.NEXT_PUBLIC_PORTAL_HOST ??
       (typeof window !== "undefined" ? window.location.origin : "");
     return `${host}/m/${state.sessionId}`;
-  }, [state.sessionId]);
+  }, [state.shareUrl, state.sessionId]);
 
   useEffect(() => {
     let cancelled = false;

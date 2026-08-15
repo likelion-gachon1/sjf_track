@@ -1,13 +1,45 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { COPY } from "@/config/portal.config";
 import { findProductChoice } from "@/config/products.config";
 import { usePortalFlow } from "@/lib/FlowContext";
+import { uploadSession } from "@/lib/api";
 
 // 09 YOUR MCM MOMENT
 // 촬영 직후, 찍은 사진을 크게 보여주는 화면. "다음"으로 08 QR 로 넘어갑니다.
 export default function StepMoment() {
   const { state, dispatch } = usePortalFlow();
+
+  // 촬영 직후, 합성 사진 + 선택값을 백엔드로 업로드하고 공유 URL 을 받아둡니다.
+  // (StrictMode 이중 마운트로 두 번 올라가지 않게 ref 로 한 번만 실행)
+  const uploadedRef = useRef(false);
+  useEffect(() => {
+    if (uploadedRef.current) return;
+    if (!state.capturedImage || !state.sessionId || state.capturedAt == null) return;
+    uploadedRef.current = true;
+
+    uploadSession(
+      {
+        sessionId: state.sessionId,
+        consent: state.consent,
+        productId: state.productId,
+        colorwayKey: state.colorwayKey,
+        mood: state.answers.mood,
+        journey: state.answers.journey,
+        worldId: state.selectedWorldId,
+        capturedAt: state.capturedAt,
+      },
+      state.capturedImage
+    )
+      .then((res) => dispatch({ type: "SET_SHARE_URL", url: res.shareUrl }))
+      .catch((err: unknown) => {
+        // 서버가 꺼져 있거나 실패해도 앱은 그대로 진행됩니다 (QR 은 임시 URL 로 폴백).
+        console.warn("[portal] 세션 업로드 실패 — 임시 QR 로 진행:", err);
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const choice = findProductChoice(state.productId, state.colorwayKey);
   const pointColor = choice?.colorway.hex ?? "#0a0a0a";
 

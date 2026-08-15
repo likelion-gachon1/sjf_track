@@ -23,6 +23,8 @@ interface FlowState {
   capturedAt: number | null;
   /** 촬영 결과 JPEG dataURL (서버 업로드 없이 메모리에만 보관). */
   capturedImage: string | null;
+  /** 백엔드 업로드 후 받은 공유 URL (QR 에 사용). 실패 시 null. */
+  shareUrl: string | null;
   /** 07 음소거 토글 상태. */
   bgmMuted: boolean;
   productInterestSaved: boolean;
@@ -39,6 +41,7 @@ const initialState: FlowState = {
   selectedWorldId: null,
   capturedAt: null,
   capturedImage: null,
+  shareUrl: null,
   bgmMuted: false,
   productInterestSaved: false,
   savedMoments: [],
@@ -58,6 +61,7 @@ type FlowAction =
   | { type: "TOGGLE_BGM_MUTE" }
   | { type: "CHANGE_WORLD"; worldId: WorldId }
   | { type: "SAVE_PRODUCT_INTEREST" }
+  | { type: "SET_SHARE_URL"; url: string }
   | { type: "RESET" };
 
 // 화면 전환 책임은 리듀서가 갖습니다. 각 전환은 "예상한 step 에서만" 일어나므로
@@ -145,6 +149,9 @@ function flowReducer(state: FlowState, action: FlowAction): FlowState {
 
     case "SAVE_PRODUCT_INTEREST":
       return { ...state, productInterestSaved: true };
+
+    case "SET_SHARE_URL":
+      return { ...state, shareUrl: action.url };
 
     case "RESET":
       // 갤러리(savedMoments)는 부스 운영 중 계속 쌓이도록 유지하고,
