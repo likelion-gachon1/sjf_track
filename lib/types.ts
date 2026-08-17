@@ -134,6 +134,8 @@ export interface WorldDef {
 export interface QuestionOption<K extends string> {
   key: K;
   label: string;
+  /** 라벨 아래 작게 붙는 보조 설명. 없으면 라벨만 렌더링합니다. */
+  description?: string;
 }
 
 export interface QuestionDef<K extends string> {

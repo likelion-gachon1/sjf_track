@@ -1,7 +1,13 @@
 "use client";
 
 import { useEffect } from "react";
-import { COPY, WORLDS, buildWorldReason, resolveWorld } from "@/config/portal.config";
+import {
+  COPY,
+  WORLDS,
+  applyComboBackground,
+  buildWorldReason,
+  resolveWorld,
+} from "@/config/portal.config";
 import { track } from "@/lib/analytics";
 import { usePortalFlow } from "@/lib/FlowContext";
 import { usePortalRuntime } from "@/lib/PortalRuntime";
@@ -29,7 +35,9 @@ export default function StepOpening() {
 
     let cancelled = false;
     const worldId = resolveWorld(colorwayKey, mood, journey);
-    const world = WORLDS[worldId];
+    // 07에서 쓸 배경을 여기서 미리 받아둡니다 — 조합 배경까지 반영해야 같은 파일을
+    // 프리로드하게 되고, 07 진입 시 다시 받느라 첫 프레임이 비는 일이 없습니다.
+    const world = applyComboBackground(WORLDS[worldId], colorwayKey, { mood, journey });
 
     // 개별 실패는 진행을 막지 않습니다 — 카메라 실패는 07의 에러 UI가,
     // 이미지 실패는 gradient 폴백이 처리합니다.

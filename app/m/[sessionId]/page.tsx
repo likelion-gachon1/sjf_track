@@ -80,7 +80,7 @@ export default function MobileResultPage({
         background: "#f7f5f1",
         color: "#1a1a1a",
         fontFamily:
-          "-apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sans-serif",
+          "var(--font-suit), -apple-system, BlinkMacSystemFont, sans-serif",
         textAlign: "center",
       }}
     >

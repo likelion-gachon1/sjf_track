@@ -5,7 +5,7 @@ import { RIPPLE_CONFIG } from "@/config/portal.config";
 import {
   RippleContext,
   coveringRadius,
-  prefersReducedMotion,
+  motionAllowed,
   type RippleController,
   type RippleMode,
   type RippleOrigin,
@@ -62,8 +62,8 @@ export default function RippleProvider({ children }: { children: React.ReactNode
     (origin: RippleOrigin, mode: RippleMode, onCommit: () => void) => {
       if (busyRef.current) return;
 
-      // 동작 줄이기 설정에서는 연출을 생략하고 즉시 전환합니다.
-      if (prefersReducedMotion()) {
+      // 연출을 재생하지 않는 설정에서는 생략하고 즉시 전환합니다.
+      if (!motionAllowed()) {
         onCommit();
         return;
       }

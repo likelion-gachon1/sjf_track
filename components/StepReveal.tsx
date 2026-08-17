@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { COPY, WORLDS } from "@/config/portal.config";
+import { COPY, WORLDS, applyComboBackground } from "@/config/portal.config";
 import { findProductChoice } from "@/config/products.config";
 import { track } from "@/lib/analytics";
 import { usePortalFlow } from "@/lib/FlowContext";
@@ -14,7 +14,10 @@ export default function StepReveal() {
   const { state, dispatch } = usePortalFlow();
   const runtime = usePortalRuntime();
 
-  const world = state.selectedWorldId ? WORLDS[state.selectedWorldId] : null;
+  // 조합 전용 실사 배경이 준비돼 있으면 그것으로, 없으면 gradient 목업으로 나갑니다.
+  const world = state.selectedWorldId
+    ? applyComboBackground(WORLDS[state.selectedWorldId], state.colorwayKey, state.answers)
+    : null;
   const choice = findProductChoice(state.productId, state.colorwayKey);
 
   useEffect(() => {

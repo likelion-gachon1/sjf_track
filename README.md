@@ -39,11 +39,51 @@ cp node_modules/@mediapipe/selfie_segmentation/*.{wasm,js,binarypb,tflite,data} 
 경로는 `SEGMENTATION_CONFIG.assetBasePath` 와 일치해야 합니다.
 DevTools Network 탭에서 `jsdelivr`/`cdn` 요청이 **0건**이면 정상입니다.
 
+### 폰트 (SUIT-Bold)
+
+모든 화면의 글자는 **SUIT-Bold** 하나로 통일돼 있습니다. 웹폰트 CDN 을 쓰지 않고
+`public/font/SUIT-Bold.ttf` 를 자가 호스팅하므로, 부스 네트워크가 끊겨도 서체가 깨지지
+않습니다(MediaPipe 에셋과 같은 이유).
+
+| 위치 | 역할 |
+|---|---|
+| `public/font/SUIT-Bold.ttf` | 폰트 원본 (교체 시 파일명을 그대로 유지하세요) |
+| `app/layout.tsx` | `next/font/local` 로 로드 → CSS 변수 `--font-suit` 노출 |
+| `tailwind.config.ts` | `font-sans` / `font-serif` 둘 다 `var(--font-suit)` 로 지정 |
+
+`font-serif` 도 같은 서체를 가리키므로, 기존 `font-serif` 클래스를 쓰던 제목들
+(`StepIntro` · `StepReveal` · `StepHandoff` 등)을 하나씩 고치지 않아도 함께 적용됩니다.
+
+⚠️ 폰트 파일은 **Bold 한 종류뿐**이라 `app/layout.tsx` 에서 `weight: "100 900"` 으로
+선언했습니다. `"700"` 처럼 좁히면 `font-weight: 400` 인 글자가 이 파일에 매칭되지 않아
+**시스템 폰트로 폴백**하므로, 굵기 범위를 좁히지 마세요.
+
+⚠️ `tailwind.config.ts` 를 고친 뒤에는 **dev 서버를 재시작**해야 반영됩니다
+(Next 가 컴파일된 설정을 캐시해서, 새로고침만으로는 예전 폰트가 계속 나옵니다).
+
 ### BGM 음원 (선택)
 
 `public/bgm/{worldId}.mp3` 규약으로 넣어주세요 (예: `public/bgm/newyork_attitude.mp3`).
 **파일이 없어도 앱은 정상 동작합니다** — 콘솔 경고만 남고 무음으로 진행되며 음소거
 토글도 그대로 눌립니다.
+
+### 환경 변수 (`.env.local`)
+
+백엔드 주소는 `.env.local` 한 곳에서만 정합니다 (`.gitignore` 의 `.env*.local` 규칙으로
+git 에는 올라가지 않으니 각자 만들어야 합니다).
+
+```bash
+NEXT_PUBLIC_API_BASE=http://localhost:8080     # sjf_BE 주소
+NEXT_PUBLIC_PORTAL_HOST=http://localhost:3000  # 업로드 실패 시 임시 QR 의 host
+```
+
+로컬에서 FE(3000)·BE(8080)를 같이 띄우는 동안에는 위 값 그대로 두면 됩니다.
+
+⚠️ **폰으로 QR 을 스캔해 테스트할 때만** `NEXT_PUBLIC_API_BASE` 를 PC 의 LAN IP
+(예: `http://192.168.0.15:8080`)로 바꾸세요. `localhost` 는 QR 을 연 **폰 자신**을
+가리키므로 접속되지 않습니다. 이때 백엔드의 `FRONTEND_BASE_URL`·`PUBLIC_API_BASE_URL`·
+`ALLOWED_ORIGINS` 도 같은 IP 로 맞춰야 QR 주소와 이미지 주소가 함께 살아납니다
+(BE 담당자와 값을 조율하세요). 폰과 PC 는 같은 Wi-Fi 에 있어야 합니다.
 
 ### 개발 서버
 
@@ -57,7 +97,10 @@ npm run dev
 **카메라 권한은 5번 화면(PORTAL OPENING)에서** 요청합니다. 7번 합성 화면 진입 시
 팝업이 뜨면 몰입이 깨지기 때문에 미리 확보합니다.
 
-## 플로우 (8화면)
+## 플로우 (10화면)
+
+아래 순서대로 진행됩니다. `#` 는 와이어프레임 번호라 **09 MOMENT 가 08 QR 보다 앞**에
+옵니다 (촬영 사진을 먼저 크게 확인하고 QR 로 넘어가는 순서).
 
 | # | 화면 | 파일 |
 |---|---|---|
@@ -68,7 +111,9 @@ npm run dev
 | 05 | PORTAL OPENING — 연출 + 프리로드(카메라·MediaPipe·배경) | `components/StepOpening.tsx` |
 | 06 | WORLD REVEAL — 결과 World 공개, BGM 페이드인 | `components/StepReveal.tsx` |
 | 07 | EXPERIENCE — 실시간 합성 + 촬영 | `components/StepMirror.tsx` + `MirrorStage.tsx` |
-| — | QR HANDOFF — QR + 사진 저장 | `components/StepHandoff.tsx` |
+| 09 | YOUR MCM MOMENT — 촬영 사진 확인 + 서버 업로드 | `components/StepMoment.tsx` |
+| 08 | QR HANDOFF — QR + 사진 저장 | `components/StepHandoff.tsx` |
+| — | SHOP — TODAY'S MCM + SAVED ITEMS | `components/StepShop.tsx` |
 
 상태는 `lib/FlowContext.tsx` 의 `useReducer` 로 관리되며 라우팅 없이 한 페이지에서
 전환됩니다. 화면 전환 책임은 리듀서에 있고, 각 전환은 예상한 단계에서만 일어나므로
@@ -87,8 +132,8 @@ npm run dev
 - `WORLD_ALTERNATES` — "다른 세계도 보기" 안건용 (현재 화면에서는 미사용)
 
 제품 데이터는 [`config/products.config.ts`](config/products.config.ts) 에 있습니다
-(`PRODUCTS`). `colorway.hex` 는 02 카드 외에 06 CTA 테두리와 QR 화면 포인트 색으로도
-쓰입니다(07 합성 화면에는 적용하지 않습니다).
+(`PRODUCTS`). `colorway.hex` 는 02 카드 외에 06 CTA 테두리, 09 MOMENT 사진 테두리,
+08 QR 화면 포인트 색으로도 쓰입니다(07 합성 화면에는 적용하지 않습니다).
 
 ### 제품 사진 넣기
 
@@ -118,6 +163,33 @@ World 속성과의 매칭 점수로 결정됩니다 (조합별 하드코딩 테�
 
 ⚠️ 시간대·공간 성격 축은 **문구로 노출하지 않습니다**. 라벨이나 문구에 "밤/노을" 같은
 표현을 넣지 마세요. 대신 **배경 색으로만** 느껴지게 합니다.
+
+### 실사 배경은 조합 단위로 붙습니다
+
+World 는 위 매칭 점수로 고르지만, **실사 배경은 (컬러웨이 × 무드 × 여행 스타일) 조합에
+직접 매핑**됩니다. `config/portal.config.ts` 의 `COMBO_BACKGROUNDS` 에 등록된 조합만 실사
+배경이 나가고, 나머지는 World 의 gradient 목업이 그대로 쓰입니다.
+
+| 무드 키 | 03 화면 라벨 | 파일명 표기 |
+|---|---|---|
+| `light` | 설렘 (새로운 순간을 기대하는) | `romance` |
+| `calm` | 여유 (천천히 즐기고 싶은) | `healing` |
+| `bold` | 자신감 (나답게 뽐내고 싶은) | — (배경 미준비) |
+
+| 여행 키 | 04 화면 라벨 | 파일명 표기 |
+|---|---|---|
+| `explore` | 도시 곳곳 둘러보기 | `city` |
+| `culture` | 쇼핑·문화 즐기기 | `shopping` |
+| `relax` | 여유롭게 쉬기 | `rest` |
+
+현재는 **PINK × (설렘·여유) × 3가지 여행 = 6조합**에 배경이 있습니다
+(`public/worlds/pink_{romance|healing}_{city|shopping|rest}.png`). 배경을 추가할 때는
+파일을 `public/worlds/` 에 넣고 `COMBO_BACKGROUNDS` 에 한 줄만 등록하면 06 리빌 화면과
+07 합성 캔버스에 함께 반영됩니다.
+
+⚠️ `WORLDS[].backgroundImage` 에 **없는 파일 경로를 적지 마세요.** 06 리빌은 CSS
+`url()` 로 배경을 깔기 때문에, 파일이 404 나면 gradient 로 폴백되지 않고 배경이 아예
+비어버립니다(캔버스 합성만 gradient 로 폴백됩니다).
 
 ### 시간대 팔레트 규약
 
@@ -149,7 +221,7 @@ console.table(window.__portalMappingTable())
 18조합(컬러웨이 2 × 무드 3 × 여행 3)의 결과 World와 `reason` 문장이 표로 나옵니다.
 `ACTIVE_WORLD_IDS` 를 바꾸면 이 표가 바로 달라집니다.
 
-> `reason` 문장("차분하고 분위기 있게 · 쇼핑·문화 즐기기 — NEW YORK, 해 질 무렵")은
+> `reason` 문장("여유 · 쇼핑·문화 즐기기 — NEW YORK, 해 질 무렵")은
 > 데이터로만 생성해두고 **화면에는 렌더링하지 않습니다.** 노출 위치는 회의 후 결정.
 
 ## 합성 동작 방식
@@ -220,26 +292,63 @@ MATTING_CONFIG = {
 - 안내문에 **초록색 의상 주의**를 넣어주세요 (옷이 함께 지워집니다).
 - 조명을 잡은 뒤 실제 화면을 캡처해 `keyColor` 를 실측값으로 교체하세요.
 
+## 세션 ID · 서버 오류 처리
+
+촬영 결과를 서버에 저장하고 QR 로 잇는 흐름에서, **부스에서만 조용히 실패하는** 두 지점을
+아래 규약으로 막아뒀습니다.
+
+### sessionId 는 반드시 UUID 형식
+
+`createSessionId()`(`lib/FlowContext.tsx`)가 01 START 에서 발급합니다. 백엔드가 이 값을
+UUID 로 검증하므로 **폴백도 UUID 형식이어야 합니다.**
+
+`crypto.randomUUID` 는 secure context(https/localhost) 전용이라 부스 PC 가 http 로 접속하면
+쓸 수 없습니다. 그래서 http 에서도 동작하는 `crypto.getRandomValues` 로 RFC 4122 v4 UUID 를
+직접 조립하고, 그마저 없으면 `Math.random` 으로 내려가되 **형식은 그대로 유지**합니다.
+
+⚠️ 이 폴백의 출력 형식을 바꾸지 마세요. `${Date.now()}-${random}` 같은 값은 개발 PC
+(localhost)에서는 멀쩡히 동작하다가 **부스(http)에서만 업로드가 400 으로 실패**합니다.
+화면에는 오류가 안 뜨고 QR 만 안 되는 형태라 원인을 찾기 어렵습니다.
+
+### 오류는 상태 코드별로 다르게 안내
+
+`lib/api.ts` 의 `ApiError` 가 상태 코드와 백엔드 오류 본문(`API_SPEC` 5번 형식)을 화면까지
+전달합니다. 네트워크가 끊긴 경우는 `fetch` 가 `TypeError` 를 던지므로 `instanceof ApiError`
+로 자연스럽게 갈립니다. 모바일 결과 페이지(`/m/{sessionId}`)는 이걸 받아 나눠 보여줍니다.
+
+| 상황 | 화면 문구 |
+|---|---|
+| 네트워크 단절 (서버에 닿지 못함) | 연결에 실패했어요 |
+| 404 | 사진을 찾을 수 없어요 |
+| 410 | 링크가 만료되었어요 (촬영 후 24시간 경과) |
+| 그 외 (500 등) | 사진을 불러오지 못했어요 + 오류 코드 |
+
+원본 오류는 `console.warn("[portal] 세션 조회 실패:", err)` 로 남습니다. 스태프가 폰 화면
+문구로 1차 판단하고, 필요하면 콘솔에서 백엔드 메시지까지 확인하는 구조입니다.
+
 ## KPI 이벤트
 
 `lib/analytics.ts` 의 `track()` 이 단계별로 호출됩니다. 아직 전송은 하지 않고
 `console.info("[portal] ...")` + `window.__portalEvents` 버퍼에만 남깁니다.
-와이어프레임 KPI 4종 중 QR 노출·사진 저장은 이미 호출 지점이 있고, 관심 제품 저장·제품
-상세 확인은 모바일 화면에서 붙일 예정입니다(타입만 정의됨).
+와이어프레임 KPI 4종 중 QR 노출·사진 저장·관심 제품 저장(SHOP 화면)까지는 호출 지점이
+있고, **제품 상세 확인(`product_detail_viewed`)만 타입 정의뿐**입니다.
 
 ## 다음 단계 / 알려진 한계
 
-- **모바일 4화면 + 서버 라우트·DB 미구현.** QR은 `/m/{sessionId}` 를 인코딩하지만
-  해당 라우트는 아직 없습니다 (임시). 운영 도메인은 `NEXT_PUBLIC_PORTAL_HOST` 로 주입.
+- **모바일 페이지는 사진 확인·저장까지만.** `/m/{sessionId}` 라우트와 촬영 결과 업로드는
+  연결됐지만, 와이어프레임의 관심 제품 저장·제품 상세 화면은 아직 없습니다.
+- **업로드 실패를 되돌릴 수단이 없습니다.** 실패해도 앱은 임시 QR 로 계속 진행되지만,
+  그 QR 은 서버에 없는 세션을 가리키므로 폰에서 "사진을 찾을 수 없어요"(404)가 뜹니다.
+  요청 타임아웃·재시도 버튼·10MB 초과 가드(413)·만료 시각 안내는 아직 미구현입니다.
 - **인물 경계가 움직임에 따라 살짝 흔들려 배경이 비칩니다.** 프레임마다 마스크를 새로
   추정하는 방식의 구조적 한계이며, 부스 제작 시 **그린 스크린 크로마키로 교체 예정**
   입니다(위 "다음 단계: 그린 스크린 크로마키"). 그때까지 촬영은 어깨에 멘 구도 +
   움직임을 줄인 포즈가 가장 안정적입니다.
 - SelfieSegmentation은 **인물 전용 모델**이라 손에 든 가방·가는 스트랩은 배경으로
   잘릴 수 있습니다. 이 역시 크로마키 전환으로 함께 해결됩니다.
-- World 배경은 아직 gradient입니다. 실사 배경이 없어도 시간대는 구분되도록
-  팔레트를 잡아뒀지만(아래 참고), **도시 고유의 장소감**은 실사 배경
-  (`WORLDS[].backgroundImage`)이 들어와야 살아납니다.
+- **실사 배경은 18조합 중 6조합만 준비됐습니다** (PINK × 설렘·여유 × 여행 3종).
+  나머지 12조합(자신감 전체 + BLACK 전체)은 gradient 목업으로 나갑니다 — 시간대는
+  팔레트로 구분되지만 **도시 고유의 장소감**은 실사 배경이 들어와야 살아납니다.
 - BGM 음원 미확보 — 재생 경로만 검증 가능합니다.
 - 대화형 AI 음성 컨시어지는 이번 범위에서 제외됐습니다 (취향 입력은 버튼 선택).
 

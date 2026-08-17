@@ -6,6 +6,7 @@ import { PRODUCT_CHOICES } from "@/config/products.config";
 import { track } from "@/lib/analytics";
 import { usePortalFlow } from "@/lib/FlowContext";
 import type { Colorway, Product } from "@/lib/types";
+import { useHoverRipple } from "@/lib/useHoverRipple";
 import { useRipple } from "@/lib/useRipple";
 import StepFrame from "./StepFrame";
 
@@ -56,35 +57,41 @@ function ProductCard({ product, colorway, disabled, onSelect }: ProductCardProps
   // 로드 실패 시 백팩 실루엣으로 폴백합니다.
   const [imageBroken, setImageBroken] = useState(false);
   const showPhoto = Boolean(colorway.image) && !imageBroken;
+  const { handlers, layer } = useHoverRipple(disabled);
 
   return (
     <button
       type="button"
       disabled={disabled}
       onClick={onSelect}
-      className="w-80 rounded-2xl border border-ink/12 bg-white p-5 pb-8 text-center transition-all hover:-translate-y-0.5 hover:border-ink/35 hover:shadow-lg disabled:cursor-default disabled:hover:translate-y-0 disabled:hover:shadow-none"
+      {...handlers}
+      className="relative w-80 overflow-hidden rounded-2xl border border-ink/12 bg-white p-5 pb-8 text-center transition-all hover:-translate-y-0.5 hover:border-ink/35 hover:shadow-lg disabled:cursor-default disabled:hover:translate-y-0 disabled:hover:shadow-none"
     >
-      {/* 제품 컷은 흰 배경이라 카드보다 살짝 어두운 중립 배경 위에 올립니다. */}
-      <div className="flex h-72 w-full items-center justify-center overflow-hidden rounded-xl bg-[#f4f2ef]">
-        {showPhoto && colorway.image ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={colorway.image}
-            alt={`${product.name} ${product.line} — ${colorway.label}`}
-            onError={() => setImageBroken(true)}
-            className="h-full w-full object-contain p-3"
-          />
-        ) : (
-          <BackpackSilhouette hex={colorway.hex} />
-        )}
-      </div>
+      {layer}
+      {/* 물결 레이어(absolute) 위에 그려지도록 콘텐츠를 relative 로 감쌉니다. */}
+      <span className="relative block">
+        {/* 제품 컷은 흰 배경이라 카드보다 살짝 어두운 중립 배경 위에 올립니다. */}
+        <span className="flex h-72 w-full items-center justify-center overflow-hidden rounded-xl bg-[#f4f2ef]">
+          {showPhoto && colorway.image ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={colorway.image}
+              alt={`${product.name} ${product.line} — ${colorway.label}`}
+              onError={() => setImageBroken(true)}
+              className="h-full w-full object-contain p-3"
+            />
+          ) : (
+            <BackpackSilhouette hex={colorway.hex} />
+          )}
+        </span>
 
-      <p className="mt-7 text-base tracking-widest2 text-ink">{colorway.label}</p>
-      <p className="mt-3 text-xs leading-relaxed text-ink/50">
-        {product.name}
-        <br />
-        {product.line}
-      </p>
+        <span className="mt-7 block text-base tracking-widest2 text-ink">{colorway.label}</span>
+        <span className="mt-3 block text-xs leading-relaxed text-ink/50">
+          {product.name}
+          <br />
+          {product.line}
+        </span>
+      </span>
     </button>
   );
 }

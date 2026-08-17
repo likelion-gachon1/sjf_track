@@ -3,7 +3,8 @@
 import { COPY, JOURNEY_QUESTION } from "@/config/portal.config";
 import { track } from "@/lib/analytics";
 import { usePortalFlow } from "@/lib/FlowContext";
-import type { JourneyKey } from "@/lib/types";
+import type { JourneyKey, QuestionOption } from "@/lib/types";
+import { useHoverRipple } from "@/lib/useHoverRipple";
 import { useRipple } from "@/lib/useRipple";
 import StepFrame from "./StepFrame";
 
@@ -22,26 +23,52 @@ export default function StepJourney() {
     >
       <div className="flex justify-center gap-8">
         {JOURNEY_QUESTION.options.map((option) => (
-          <button
+          <JourneyOption
             key={option.key}
-            type="button"
+            option={option}
             disabled={isTransitioning}
-            onClick={(e) =>
+            onSelect={(e) =>
               trigger(e, "final", () => {
                 dispatch({ type: "ANSWER_JOURNEY", value: option.key });
                 track({ name: "journey_selected", value: option.key });
               })
             }
-            className="flex h-52 w-56 flex-col items-center justify-center gap-6 rounded-xl border border-ink/15 transition-colors hover:border-accent hover:bg-accent/5 disabled:cursor-default"
-          >
-            <JourneyIcon journey={option.key} />
-            <span className="whitespace-pre-line text-sm leading-relaxed text-ink/80">
-              {option.label}
-            </span>
-          </button>
+          />
         ))}
       </div>
     </StepFrame>
+  );
+}
+
+// 선택지 한 칸. 호버하면 커서 지점에서 물결이 퍼집니다.
+function JourneyOption({
+  option,
+  disabled,
+  onSelect,
+}: {
+  option: QuestionOption<JourneyKey>;
+  disabled: boolean;
+  onSelect: (e: React.MouseEvent) => void;
+}) {
+  const { handlers, layer } = useHoverRipple(disabled);
+
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onSelect}
+      {...handlers}
+      className="relative flex h-52 w-56 items-center justify-center overflow-hidden rounded-xl border border-ink/15 transition-colors hover:border-accent hover:bg-accent/5 disabled:cursor-default"
+    >
+      {layer}
+      {/* 물결 레이어(absolute) 위에 그려지도록 콘텐츠를 relative 로 감쌉니다. */}
+      <span className="relative flex flex-col items-center gap-6">
+        <JourneyIcon journey={option.key} />
+        <span className="whitespace-pre-line text-sm leading-relaxed text-ink/80">
+          {option.label}
+        </span>
+      </span>
+    </button>
   );
 }
 
