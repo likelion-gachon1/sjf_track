@@ -58,6 +58,13 @@ export default function StepHandoff() {
 
   const fileName = `mcm-portal-${world?.id ?? "world"}-${state.capturedAt ?? Date.now()}.jpg`;
 
+  function handleRestart() {
+    // 카메라·MediaPipe·배경·BGM 을 한 번에 정리하고 다음 고객을 위해 초기화합니다.
+    runtime.releaseAll();
+    dispatch({ type: "RESET" });
+    track({ name: "session_reset" });
+  }
+
   return (
     <div className="flex h-full min-h-screen flex-col items-center justify-center bg-paper px-8 py-16 text-center">
       <h2 className="font-serif text-3xl">{COPY.handoffHeading}</h2>
@@ -90,23 +97,16 @@ export default function StepHandoff() {
           </a>
         )}
 
+        {/* 부스의 마지막 화면입니다. 관심 제품 저장은 QR 로 넘어간 폰에서 이어집니다
+            (/m/{sessionId}/shop) — 부스 화면은 다음 고객을 위해 비워둬야 합니다. */}
         <button
           type="button"
-          onClick={() => dispatch({ type: "SHOW_SHOP" })}
+          onClick={handleRestart}
           className="flex items-center gap-3 rounded-full bg-ink px-10 py-3 text-sm tracking-widest text-white transition-colors hover:bg-ink/85"
         >
-          {COPY.handoffNext}
-          <ArrowRight />
+          {COPY.restartButton}
         </button>
       </div>
     </div>
-  );
-}
-
-function ArrowRight() {
-  return (
-    <svg width="28" height="8" viewBox="0 0 28 8" fill="none" aria-hidden>
-      <path d="M0 4h26M22 1l4 3-4 3" stroke="currentColor" strokeWidth="1" />
-    </svg>
   );
 }

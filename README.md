@@ -97,10 +97,21 @@ npm run dev
 **카메라 권한은 5번 화면(PORTAL OPENING)에서** 요청합니다. 7번 합성 화면 진입 시
 팝업이 뜨면 몰입이 깨지기 때문에 미리 확보합니다.
 
-## 플로우 (10화면)
+## 플로우 (부스 9화면 + 모바일 2화면)
 
-아래 순서대로 진행됩니다. `#` 는 와이어프레임 번호라 **09 MOMENT 가 08 QR 보다 앞**에
-옵니다 (촬영 사진을 먼저 크게 확인하고 QR 로 넘어가는 순서).
+부스 화면은 **08 QR 에서 끝납니다.** 사진 저장과 관심 제품 저장은 QR 로 넘어간
+**방문객 폰**에서 이어지고, 부스는 "처음으로"로 다음 고객을 맞습니다.
+
+```
+[부스]  01 START → 02 PRODUCT → 03 MOOD → 04 TRAVEL STYLE → 05 OPENING
+        → 06 REVEAL → 07 EXPERIENCE(촬영) → 09 MOMENT → 08 QR → 처음으로
+
+[폰]    QR 스캔 → /m/{sessionId}        사진 확인 · 저장
+                → /m/{sessionId}/shop   TODAY'S MCM · SAVED ITEMS
+```
+
+`#` 는 와이어프레임 번호라 **09 MOMENT 가 08 QR 보다 앞**에 옵니다
+(촬영 사진을 먼저 크게 확인하고 QR 로 넘어가는 순서).
 
 | # | 화면 | 파일 |
 |---|---|---|
@@ -112,8 +123,21 @@ npm run dev
 | 06 | WORLD REVEAL — 결과 World 공개, BGM 페이드인 | `components/StepReveal.tsx` |
 | 07 | EXPERIENCE — 실시간 합성 + 촬영 | `components/StepMirror.tsx` + `MirrorStage.tsx` |
 | 09 | YOUR MCM MOMENT — 촬영 사진 확인 + 서버 업로드 | `components/StepMoment.tsx` |
-| 08 | QR HANDOFF — QR + 사진 저장 | `components/StepHandoff.tsx` |
-| — | SHOP — TODAY'S MCM + SAVED ITEMS | `components/StepShop.tsx` |
+| 08 | QR HANDOFF — QR + 사진 저장 + **처음으로**(부스 마지막) | `components/StepHandoff.tsx` |
+
+QR 로 이어지는 모바일 화면은 아래 두 개입니다.
+
+| 경로 | 화면 | 파일 |
+|---|---|---|
+| `/m/{sessionId}` | 촬영 사진 확인 · 저장 → "다음" | `app/m/[sessionId]/page.tsx` |
+| `/m/{sessionId}/shop` | TODAY'S MCM · SAVED ITEMS · 관심 제품 저장 | `app/m/[sessionId]/shop/page.tsx` |
+
+모바일 화면은 부스의 `FlowContext` 에 접근할 수 없으므로, 어떤 제품을 골랐는지는
+`GET /api/v1/sessions/{id}` 응답의 `productId` / `colorwayKey` 로 알아냅니다.
+
+> ⚠️ **관심 제품 저장은 아직 서버에 남지 않습니다.** 저장용 API 가 없어 폰 안에서만
+> 유지되고(새로고침하면 풀립니다) `product_interest_saved` 이벤트만 남습니다.
+> SAVED ITEMS 도 `config/products.config.ts` 의 `SAVED_ITEMS` 샘플 고정값입니다.
 
 상태는 `lib/FlowContext.tsx` 의 `useReducer` 로 관리되며 라우팅 없이 한 페이지에서
 전환됩니다. 화면 전환 책임은 리듀서에 있고, 각 전환은 예상한 단계에서만 일어나므로
@@ -335,8 +359,8 @@ UUID 로 검증하므로 **폴백도 UUID 형식이어야 합니다.**
 
 ## 다음 단계 / 알려진 한계
 
-- **모바일 페이지는 사진 확인·저장까지만.** `/m/{sessionId}` 라우트와 촬영 결과 업로드는
-  연결됐지만, 와이어프레임의 관심 제품 저장·제품 상세 화면은 아직 없습니다.
+- **관심 제품 저장이 서버에 남지 않습니다.** 모바일 화면은 붙었지만 저장용 API 가 없어
+  폰 안에서만 유지되고, 제품 상세 화면(`product_detail_viewed`)은 아직 없습니다.
 - **업로드 실패를 되돌릴 수단이 없습니다.** 실패해도 앱은 임시 QR 로 계속 진행되지만,
   그 QR 은 서버에 없는 세션을 가리키므로 폰에서 "사진을 찾을 수 없어요"(404)가 뜹니다.
   요청 타임아웃·재시도 버튼·10MB 초과 가드(413)·만료 시각 안내는 아직 미구현입니다.

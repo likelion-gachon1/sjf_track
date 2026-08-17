@@ -27,7 +27,6 @@ interface FlowState {
   shareUrl: string | null;
   /** 07 음소거 토글 상태. */
   bgmMuted: boolean;
-  productInterestSaved: boolean;
   savedMoments: SavedMoment[];
 }
 
@@ -43,7 +42,6 @@ const initialState: FlowState = {
   capturedImage: null,
   shareUrl: null,
   bgmMuted: false,
-  productInterestSaved: false,
   savedMoments: [],
 };
 
@@ -57,10 +55,8 @@ type FlowAction =
   | { type: "ENTER_PORTAL" }
   | { type: "CAPTURE"; dataUrl: string }
   | { type: "SHOW_QR" }
-  | { type: "SHOW_SHOP" }
   | { type: "TOGGLE_BGM_MUTE" }
   | { type: "CHANGE_WORLD"; worldId: WorldId }
-  | { type: "SAVE_PRODUCT_INTEREST" }
   | { type: "SET_SHARE_URL"; url: string }
   | { type: "RESET" };
 
@@ -118,7 +114,6 @@ function flowReducer(state: FlowState, action: FlowAction): FlowState {
         id: `${capturedAt}-${Math.random().toString(36).slice(2, 8)}`,
         worldId: state.selectedWorldId,
         savedAt: capturedAt,
-        productInterest: state.productInterestSaved,
         imageDataUrl: action.dataUrl,
       };
       return {
@@ -135,20 +130,12 @@ function flowReducer(state: FlowState, action: FlowAction): FlowState {
       if (state.step !== "moment") return state;
       return { ...state, step: "handoff" };
 
-    case "SHOW_SHOP":
-      // 08 QR → TODAY'S MCM / SAVED ITEMS
-      if (state.step !== "handoff") return state;
-      return { ...state, step: "shop" };
-
     case "TOGGLE_BGM_MUTE":
       return { ...state, bgmMuted: !state.bgmMuted };
 
     case "CHANGE_WORLD":
       // 미러 화면의 "다른 세계도 보기" 안건이 확정되면 되살립니다. 현재 사용처 없음.
       return { ...state, selectedWorldId: action.worldId };
-
-    case "SAVE_PRODUCT_INTEREST":
-      return { ...state, productInterestSaved: true };
 
     case "SET_SHARE_URL":
       return { ...state, shareUrl: action.url };

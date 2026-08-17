@@ -69,10 +69,9 @@ export const COPY = {
   handoffHeading: "체험이 완료되었습니다.",
   handoffCaption: "촬영한 사진을 저장하거나\n관심 제품을 저장하려면\nQR을 스캔해 주세요.",
   downloadButton: "사진 저장하기",
-  handoffNext: "다음",
   restartButton: "처음으로",
 
-  // TODAY'S MCM / SAVED ITEMS (마지막 화면)
+  // TODAY'S MCM / SAVED ITEMS — 부스가 아니라 QR 로 넘어간 폰에서 쓰입니다.
   todaysHeading: "TODAY'S MCM",
   savedHeading: "SAVED ITEMS",
   saveInterestButton: "관심 제품 저장하기",
