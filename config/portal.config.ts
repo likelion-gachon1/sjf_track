@@ -65,11 +65,21 @@ export const COPY = {
   momentCaption: "당신의 MCM 순간이 완성되었습니다.",
   momentNext: "다음",
 
+  // 업로드 상태 (09 화면) — 실패해도 흐름은 막지 않고 재시도만 제공합니다.
+  uploadInProgress: "사진을 저장하는 중...",
+  uploadRetry: "다시 시도",
+  uploadTimeout: "서버 응답이 늦어요. 연결을 확인해 주세요.",
+  uploadOffline: "네트워크에 연결되지 않았어요.",
+  uploadTooLarge: "사진 용량이 너무 커요.",
+  uploadServerError: "저장에 실패했어요. 잠시 후 다시 시도해 주세요.",
+
   // QR HANDOFF
   handoffHeading: "체험이 완료되었습니다.",
   handoffCaption: "촬영한 사진을 저장하거나\n관심 제품을 저장하려면\nQR을 스캔해 주세요.",
   downloadButton: "사진 저장하기",
   restartButton: "처음으로",
+  /** `{expiry}` 자리에 만료 시각이 들어갑니다. */
+  handoffExpiry: "이 QR은 {expiry}까지 유효합니다.",
 
   // TODAY'S MCM / SAVED ITEMS — 부스가 아니라 QR 로 넘어간 폰에서 쓰입니다.
   todaysHeading: "TODAY'S MCM",
@@ -639,6 +649,32 @@ export const RIPPLE_CONFIG = {
 // -----------------------------------------------------------------------------
 // 9. BGM 설정 — 음원은 public/bgm/{worldId}.mp3 규약으로 넣어주세요.
 //    파일이 없으면 콘솔 경고만 남기고 무음으로 동작합니다.
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+// 10. 촬영 결과 업로드 설정
+//
+//    부스 WiFi 가 불안정할 수 있으므로 요청에 타임아웃을 걸고, 백엔드의 10MB 제한
+//    (multipart max-file-size)에 걸려 413 이 나지 않도록 미리 줄여서 보냅니다.
+// -----------------------------------------------------------------------------
+export const UPLOAD_CONFIG = {
+  /** 응답이 이 시간 안에 안 오면 실패로 간주합니다(무한 대기 방지). */
+  timeoutMs: 10000,
+  /** 헬스체크는 프리로드를 붙잡지 않도록 더 짧게. */
+  healthTimeoutMs: 3000,
+  /** 백엔드 multipart 제한과 같은 값을 유지하세요. */
+  maxBytes: 10 * 1024 * 1024,
+  /**
+   * 용량 초과 시 위에서부터 차례로 다시 인코딩합니다.
+   * 품질을 먼저 낮추고, 그래도 안 되면 해상도를 줄입니다.
+   */
+  shrinkAttempts: [
+    { scale: 1, quality: 0.8 },
+    { scale: 1, quality: 0.65 },
+    { scale: 0.75, quality: 0.7 },
+    { scale: 0.6, quality: 0.6 },
+  ],
+} as const;
+
 // -----------------------------------------------------------------------------
 export const BGM_CONFIG = {
   volume: 0.5,

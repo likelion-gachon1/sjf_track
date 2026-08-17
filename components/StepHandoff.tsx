@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import QRCode from "qrcode";
 import { COPY, WORLDS } from "@/config/portal.config";
 import { findProductChoice } from "@/config/products.config";
+import { formatExpiresAt } from "@/lib/api";
 import { track } from "@/lib/analytics";
 import { usePortalFlow } from "@/lib/FlowContext";
 import { usePortalRuntime } from "@/lib/PortalRuntime";
@@ -57,6 +58,7 @@ export default function StepHandoff() {
   }, [runtime, state.sessionId]);
 
   const fileName = `mcm-portal-${world?.id ?? "world"}-${state.capturedAt ?? Date.now()}.jpg`;
+  const expiryLabel = state.expiresAt ? formatExpiresAt(state.expiresAt) : null;
 
   function handleRestart() {
     // 카메라·MediaPipe·배경·BGM 을 한 번에 정리하고 다음 고객을 위해 초기화합니다.
@@ -84,6 +86,13 @@ export default function StepHandoff() {
       <p className="mt-8 whitespace-pre-line text-sm leading-relaxed text-ink/60">
         {COPY.handoffCaption}
       </p>
+
+      {/* 만료 안내 — 업로드가 성공했을 때만 실제 시각을 알 수 있습니다. */}
+      {expiryLabel && (
+        <p className="mt-3 text-xs text-ink/40">
+          {COPY.handoffExpiry.replace("{expiry}", expiryLabel)}
+        </p>
+      )}
 
       <div className="mt-12 flex items-center gap-4">
         {state.capturedImage && (

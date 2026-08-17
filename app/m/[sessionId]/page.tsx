@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { fetchSession, type SessionResponse } from "@/lib/api";
+import { fetchSession, formatExpiresAt, type SessionResponse } from "@/lib/api";
 import { describeSessionError, type SessionErrorView } from "@/lib/sessionError";
 
 // QR 을 스캔하면 열리는 모바일 결과 페이지 (/m/{sessionId}).
@@ -108,6 +108,13 @@ export default function MobileResultPage({
           >
             다음 →
           </a>
+
+          {/* 만료 안내 — 링크가 언제까지 살아 있는지 알려줍니다. */}
+          {formatExpiresAt(data.expiresAt) && (
+            <p style={{ marginTop: 4, fontSize: 12, color: "#8a8a8a" }}>
+              {formatExpiresAt(data.expiresAt)}까지 볼 수 있어요.
+            </p>
+          )}
         </>
       )}
     </main>

@@ -9,6 +9,7 @@ import {
   resolveWorld,
 } from "@/config/portal.config";
 import { track } from "@/lib/analytics";
+import { checkHealth } from "@/lib/api";
 import { usePortalFlow } from "@/lib/FlowContext";
 import { usePortalRuntime } from "@/lib/PortalRuntime";
 
@@ -41,6 +42,14 @@ export default function StepOpening() {
 
     // 개별 실패는 진행을 막지 않습니다 — 카메라 실패는 07의 에러 UI가,
     // 이미지 실패는 gradient 폴백이 처리합니다.
+    // 헬스체크는 체험을 막지 않습니다 — 서버가 죽었어도 촬영까지는 정상 진행하고,
+    // 스태프가 업로드 실패 전에 미리 알아차리도록 경고만 남깁니다.
+    void checkHealth().then((ok) => {
+      if (cancelled || ok) return;
+      console.warn("[portal] 백엔드에 연결할 수 없습니다 — 촬영 후 업로드가 실패할 수 있습니다");
+      track({ name: "backend_unreachable" });
+    });
+
     const preloads = Promise.allSettled([
       runtime.getSegmenter(),
       runtime.preloadWorldImage(world),

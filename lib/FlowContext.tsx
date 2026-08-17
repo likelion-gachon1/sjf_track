@@ -25,6 +25,8 @@ interface FlowState {
   capturedImage: string | null;
   /** 백엔드 업로드 후 받은 공유 URL (QR 에 사용). 실패 시 null. */
   shareUrl: string | null;
+  /** 세션 만료 시각(ISO). 08 화면의 QR 유효기간 안내에 씁니다. 실패 시 null. */
+  expiresAt: string | null;
   /** 07 음소거 토글 상태. */
   bgmMuted: boolean;
   savedMoments: SavedMoment[];
@@ -41,6 +43,7 @@ const initialState: FlowState = {
   capturedAt: null,
   capturedImage: null,
   shareUrl: null,
+  expiresAt: null,
   bgmMuted: false,
   savedMoments: [],
 };
@@ -57,7 +60,7 @@ type FlowAction =
   | { type: "SHOW_QR" }
   | { type: "TOGGLE_BGM_MUTE" }
   | { type: "CHANGE_WORLD"; worldId: WorldId }
-  | { type: "SET_SHARE_URL"; url: string }
+  | { type: "SET_SESSION_SHARE"; url: string; expiresAt: string }
   | { type: "RESET" };
 
 // 화면 전환 책임은 리듀서가 갖습니다. 각 전환은 "예상한 step 에서만" 일어나므로
@@ -137,8 +140,8 @@ function flowReducer(state: FlowState, action: FlowAction): FlowState {
       // 미러 화면의 "다른 세계도 보기" 안건이 확정되면 되살립니다. 현재 사용처 없음.
       return { ...state, selectedWorldId: action.worldId };
 
-    case "SET_SHARE_URL":
-      return { ...state, shareUrl: action.url };
+    case "SET_SESSION_SHARE":
+      return { ...state, shareUrl: action.url, expiresAt: action.expiresAt };
 
     case "RESET":
       // 갤러리(savedMoments)는 부스 운영 중 계속 쌓이도록 유지하고,
