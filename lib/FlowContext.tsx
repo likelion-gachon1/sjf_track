@@ -191,10 +191,41 @@ export function usePortalFlow() {
  * 세션 ID 발급. crypto.randomUUID 는 secure context(https/localhost) 전용이라
  * 부스 PC가 http 로 접속하는 경우를 위해 폴백을 둡니다.
  * ⚠️ 리듀서가 아니라 START 클릭 핸들러에서 호출하세요 (리듀서를 순수하게 유지).
+ * ⚠️ 백엔드가 sessionId 를 UUID 로 검증하므로 폴백도 반드시 UUID 형식이어야 합니다
+ *    (형식이 다르면 업로드가 400 으로 조용히 실패합니다).
  */
 export function createSessionId(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
   }
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  return createUuidV4();
+}
+
+/**
+ * RFC 4122 v4 UUID 를 직접 조립합니다.
+ * `crypto.getRandomValues` 는 randomUUID 와 달리 http 에서도 쓸 수 있어 우선 사용하고,
+ * 그마저 없으면 Math.random 으로 내려갑니다(형식은 동일하게 유지).
+ */
+function createUuidV4(): string {
+  const bytes = new Uint8Array(16);
+  if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
+    crypto.getRandomValues(bytes);
+  } else {
+    for (let i = 0; i < bytes.length; i += 1) {
+      bytes[i] = Math.floor(Math.random() * 256);
+    }
+  }
+
+  // v4 규격: 7번째 바이트 상위 4비트 = 0100, 9번째 바이트 상위 2비트 = 10
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+
+  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+  return [
+    hex.slice(0, 8),
+    hex.slice(8, 12),
+    hex.slice(12, 16),
+    hex.slice(16, 20),
+    hex.slice(20),
+  ].join("-");
 }

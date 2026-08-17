@@ -36,6 +36,40 @@ export interface SessionResponse {
   expiresAt: string;
 }
 
+/** 백엔드 공통 오류 응답 (API_SPEC "5. 오류 응답"). */
+export interface ApiErrorBody {
+  status: number;
+  error: string;
+  message: string;
+  timestamp: string;
+}
+
+/**
+ * 서버가 응답은 했지만 실패한 경우(4xx/5xx).
+ * 화면에서 404(없음)·410(만료)·500(서버 오류)을 갈라 쓸 수 있도록 상태 코드를 들고 다닙니다.
+ * 네트워크 자체가 끊긴 경우는 fetch 가 TypeError 를 던지므로 `instanceof ApiError` 로 구분됩니다.
+ */
+export class ApiError extends Error {
+  readonly status: number;
+  readonly body: ApiErrorBody | null;
+
+  constructor(status: number, body: ApiErrorBody | null) {
+    super(body?.message ?? `요청 실패 (${status})`);
+    this.name = "ApiError";
+    this.status = status;
+    this.body = body;
+  }
+}
+
+/** 오류 응답 본문을 최대한 읽어옵니다 (JSON 이 아니면 null). */
+async function readErrorBody(res: Response): Promise<ApiErrorBody | null> {
+  try {
+    return (await res.json()) as ApiErrorBody;
+  } catch {
+    return null;
+  }
+}
+
 /** dataURL(JPEG) 문자열을 업로드 가능한 Blob 으로 변환합니다. */
 function dataUrlToBlob(dataUrl: string): Blob {
   const [head, body] = dataUrl.split(",");
@@ -63,7 +97,7 @@ export async function uploadSession(
     body: form,
   });
   if (!res.ok) {
-    throw new Error(`세션 업로드 실패: ${res.status}`);
+    throw new ApiError(res.status, await readErrorBody(res));
   }
   return (await res.json()) as SessionResponse;
 }
@@ -72,7 +106,7 @@ export async function uploadSession(
 export async function fetchSession(sessionId: string): Promise<SessionResponse> {
   const res = await fetch(`${API_BASE}/api/v1/sessions/${sessionId}`);
   if (!res.ok) {
-    throw new Error(`세션 조회 실패: ${res.status}`);
+    throw new ApiError(res.status, await readErrorBody(res));
   }
   return (await res.json()) as SessionResponse;
 }
