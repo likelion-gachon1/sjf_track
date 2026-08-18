@@ -19,19 +19,23 @@ export const PRODUCTS: Product[] = [
     id: "stark_backpack_visetos",
     name: "Ottomar 비세토스 위켄더",
     line: "",
-    price: 1290000,
+    price: 1750000,
     colorways: [
       {
         key: "pink",
         label: "Soft Pink",
         hex: "#e8b9c4",
         image: "/products/Ottomar_Weeke_der_in_Visetos-pink.webp",
+        storeUrl:
+          "https://kr.mcmworldwide.com/ko_KR/%ED%8A%B8%EB%9E%98%EB%B8%94/%EB%9F%AC%EA%B8%B0%EC%A7%80-%EB%B0%B1/ottomar-%EB%B9%84%EC%84%B8%ED%86%A0%EC%8A%A4-%EC%9C%84%EC%BC%84%EB%8D%94/MMVGATT01PZ001.html",
       },
       {
         key: "beige",
-        label: "cognac",
+        label: "Cognac",
         hex: "#c9b79c",
         image: "/products/Ottomar_Weeke_der_in_Visetos-beige.webp",
+        storeUrl:
+          "https://kr.mcmworldwide.com/ko_KR/%ED%8A%B8%EB%9E%98%EB%B8%94/%EB%9F%AC%EA%B8%B0%EC%A7%80-%EB%B0%B1/ottomar-%EB%B9%84%EC%84%B8%ED%86%A0%EC%8A%A4-%EC%9C%84%EC%BC%84%EB%8D%94/MMVGATT01CO001.html",
       },
     ],
   },
