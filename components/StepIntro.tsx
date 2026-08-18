@@ -37,7 +37,7 @@ export default function StepIntro() {
     >
       <Emblem />
 
-      <h1 className="mt-6 font-sans text-6xl font-bold tracking-tight text-ink">
+      <h1 className="mt-6 font-sans text-6xl font-extrabold tracking-tight text-ink">
         MCM PORTAL
       </h1>
 

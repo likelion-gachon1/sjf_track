@@ -14,7 +14,7 @@ const config: Config = {
         paper: "#faf8f5",
         accent: "#b08d57",
       },
-      // 서체는 SUIT-Bold 하나로 통일합니다(app/layout.tsx 에서 로드).
+      // 서체는 SUIT 하나로 통일합니다(app/layout.tsx 에서 Regular/Bold/ExtraBold 로드).
       // serif 도 같은 서체를 가리키므로, 기존 font-serif 클래스를 일일이 바꾸지 않아도
       // 동일하게 적용됩니다. 폰트 로드 전/실패 시에만 뒤쪽 시스템 폰트로 넘어갑니다.
       fontFamily: {

@@ -39,24 +39,35 @@ cp node_modules/@mediapipe/selfie_segmentation/*.{wasm,js,binarypb,tflite,data} 
 경로는 `SEGMENTATION_CONFIG.assetBasePath` 와 일치해야 합니다.
 DevTools Network 탭에서 `jsdelivr`/`cdn` 요청이 **0건**이면 정상입니다.
 
-### 폰트 (SUIT-Bold)
+### 폰트 (SUIT)
 
-모든 화면의 글자는 **SUIT-Bold** 하나로 통일돼 있습니다. 웹폰트 CDN 을 쓰지 않고
-`public/font/SUIT-Bold.ttf` 를 자가 호스팅하므로, 부스 네트워크가 끊겨도 서체가 깨지지
+모든 화면의 글자는 **SUIT** 하나로 통일돼 있습니다. 웹폰트 CDN 을 쓰지 않고
+`public/font/` 의 파일을 자가 호스팅하므로, 부스 네트워크가 끊겨도 서체가 깨지지
 않습니다(MediaPipe 에셋과 같은 이유).
 
 | 위치 | 역할 |
 |---|---|
-| `public/font/SUIT-Bold.ttf` | 폰트 원본 (교체 시 파일명을 그대로 유지하세요) |
-| `app/layout.tsx` | `next/font/local` 로 로드 → CSS 변수 `--font-suit` 노출 |
+| `public/font/SUIT-Regular.ttf` | 본문 기본 굵기 (400) |
+| `public/font/SUIT-Bold.ttf` | 강조·제목 (700) |
+| `public/font/SUIT-ExtraBold.ttf` | 대형 타이틀 (800) |
+| `app/layout.tsx` | `next/font/local` 로 3종 로드 → CSS 변수 `--font-suit` 노출 |
 | `tailwind.config.ts` | `font-sans` / `font-serif` 둘 다 `var(--font-suit)` 로 지정 |
 
 `font-serif` 도 같은 서체를 가리키므로, 기존 `font-serif` 클래스를 쓰던 제목들
 (`StepIntro` · `StepReveal` · `StepHandoff` 등)을 하나씩 고치지 않아도 함께 적용됩니다.
 
-⚠️ 폰트 파일은 **Bold 한 종류뿐**이라 `app/layout.tsx` 에서 `weight: "100 900"` 으로
-선언했습니다. `"700"` 처럼 좁히면 `font-weight: 400` 인 글자가 이 파일에 매칭되지 않아
-**시스템 폰트로 폴백**하므로, 굵기 범위를 좁히지 마세요.
+굵기는 Tailwind 클래스로 고릅니다.
+
+| 클래스 | 실제 파일 |
+|---|---|
+| (없음) · `font-normal` · `font-medium` | Regular |
+| `font-semibold` · `font-bold` | Bold |
+| `font-extrabold` | ExtraBold |
+
+선언에 없는 굵기(500·600)는 브라우저 폰트 매칭 규칙에 따라 가장 가까운 파일로
+떨어지므로 시스템 폰트로 폴백하지 않습니다. 파일을 **교체할 때는 파일명을 그대로
+유지**하세요. 파일을 빼면 해당 굵기가 다른 파일로 대체되니, `app/layout.tsx` 의
+`src` 배열도 함께 정리해야 합니다.
 
 ⚠️ `tailwind.config.ts` 를 고친 뒤에는 **dev 서버를 재시작**해야 반영됩니다
 (Next 가 컴파일된 설정을 캐시해서, 새로고침만으로는 예전 폰트가 계속 나옵니다).
@@ -611,7 +622,51 @@ public/worlds/{색}/{색}_{무드토큰}_{여정토큰}{버전}.png
 OPENAI_API_KEY=sk-...
 ```
 
-키를 넣은 뒤에는 `npm run dev` 를 재시작해야 반영됩니다(없으면 폴백으로 진행).
+#### OpenAI API 키 로컬 설정
+
+Owner에게 전달받은 OpenAI API 키 전체 값을 프로젝트 루트의 `.env.local`에 입력합니다.
+OpenAI 콘솔에서 지정한 키의 표시용 이름과 관계없이, 환경변수 이름은 정확히
+`OPENAI_API_KEY`로 사용해야 합니다.
+
+```env
+OPENAI_API_KEY=sk-proj-복사한_전체_키
+```
+
+키 앞뒤에 공백·따옴표를 넣지 말고, `NEXT_PUBLIC_OPENAI_API_KEY`처럼 브라우저에 노출될 수
+있는 이름을 사용하지 마세요. 키는 생성 직후에만 전체 값을 확인할 수 있으므로 안전한 곳에
+보관해야 하며, `.env.local`은 커밋하지 않습니다.
+
+키를 넣은 뒤에는 `npm run dev`를 재시작해야 반영됩니다(없으면 폴백으로 진행).
+
+#### `401 Incorrect API key provided`가 발생할 때
+
+`.env.local`에 키가 있어도 Windows 사용자/프로세스 환경변수에 같은 이름의
+`OPENAI_API_KEY`가 이미 설정되어 있으면, 실행 중인 서버가 오래된 키를 사용할 수 있습니다.
+프로젝트 폴더에서 개발 서버를 중지한 뒤 아래처럼 현재 PowerShell 세션의 값을 지우고
+재실행합니다.
+
+```powershell
+cd C:\sfj\sjf_track
+Remove-Item Env:OPENAI_API_KEY -ErrorAction SilentlyContinue
+npm run dev
+```
+
+매번 지우지 않으려면 사용자 환경변수를 한 번 삭제한 뒤 PowerShell과 VS Code를 다시 엽니다.
+
+```powershell
+[Environment]::SetEnvironmentVariable("OPENAI_API_KEY", $null, "User")
+```
+
+macOS/Linux에서는 현재 셸의 환경변수를 다음처럼 지웁니다.
+
+```bash
+unset OPENAI_API_KEY
+npm run dev
+```
+
+그래도 401이 계속되면 Owner에게 키가 유효한지, 키를 만든 Project와 현재 사용 중인 Project가
+같은지 확인을 요청합니다. 키가 노출되었거나 분실된 경우에는 Owner가 기존 키를 폐기하고
+새 키를 전달해야 합니다.
 
 ### 5. 빌드 타입 에러 정리
 

@@ -36,7 +36,7 @@ export default function StepReveal() {
     >
       <p className="text-xl text-ink/70">{COPY.revealEyebrow}</p>
 
-      <h2 className="mt-3 font-sans text-7xl font-bold tracking-tight text-ink">
+      <h2 className="mt-3 font-sans text-7xl font-extrabold tracking-tight text-ink">
         {world.displayName}
       </h2>
 
