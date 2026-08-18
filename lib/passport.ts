@@ -32,6 +32,16 @@ export interface PassportInput {
   worldName: string;
   mood: MoodKey;
   journey: JourneyKey;
+  /**
+   * 04 무드 분석에서 읽어낸 실제 착장 정보 (AI 프롬프트 힌트용, 선택).
+   *
+   * 넘기면 AI 카피가 "오늘 입고 온 옷"을 반영합니다 — 같은 제품·같은 도시라도
+   * 손님마다 다른 문장이 나오게 하는 재료입니다. 폴백 문구에는 쓰이지 않습니다
+   * (폴백은 네트워크 없이 결정적으로 계산되어야 하므로).
+   */
+  outfitColorName?: string;
+  /** "블랙 색상으로 시크하고 미니멀한 느낌입니다." 같은 한 줄 분석 */
+  outfitDescription?: string;
 }
 
 export interface PassportData {

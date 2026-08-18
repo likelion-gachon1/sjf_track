@@ -105,8 +105,9 @@ npm run dev
 `http://localhost:3000` 접속. 부스의 큰 가로 화면 기준 레이아웃이라 브라우저 창을 넓게
 띄워서 보는 걸 권장합니다.
 
-**카메라 권한은 5번 화면(PORTAL OPENING)에서** 요청합니다. 7번 합성 화면 진입 시
-팝업이 뜨면 몰입이 깨지기 때문에 미리 확보합니다.
+**카메라 권한은 4번 화면(MOOD)에서** 요청합니다. 무드 분석에 카메라가 필요해서
+자연스럽게 그 자리에서 받고, 그 스트림을 05 프리로드와 07 합성이 그대로 재사용합니다
+(권한 팝업은 체험당 한 번만 뜹니다).
 
 ## 플로우 (부스 9화면 + 모바일 2화면)
 
@@ -114,7 +115,7 @@ npm run dev
 **방문객 폰**에서 이어지고, 부스는 "처음으로"로 다음 고객을 맞습니다.
 
 ```
-[부스]  01 START → 02 PRODUCT → 03 MOOD → 04 TRAVEL STYLE → 05 OPENING
+[부스]  01 START → 02 PRODUCT → 03 TRAVEL STYLE → 04 MOOD(AI 분석) → 05 OPENING
         → 06 REVEAL → 07 EXPERIENCE(촬영) → 09 MOMENT → 08 QR → 처음으로
 
 [폰]    QR 스캔 → /m/{sessionId}        사진 확인 · 저장
@@ -126,10 +127,10 @@ npm run dev
 
 | # | 화면 | 파일 |
 |---|---|---|
-| 01 | START — 촬영 동의 + 시작 | `components/StepIntro.tsx` |
+| 01 | START — 촬영·AI 분석 동의 + 시작 | `components/StepIntro.tsx` |
 | 02 | PRODUCT (01/03) — 제품 컬러웨이 선택 | `components/StepProduct.tsx` |
-| 03 | MOOD (02/03) — 분위기 선택 | `components/StepMood.tsx` |
-| 04 | TRAVEL STYLE (03/03) — 여행 스타일 선택 | `components/StepJourney.tsx` |
+| 03 | TRAVEL STYLE (02/03) — 여행 스타일 선택 | `components/StepJourney.tsx` |
+| 04 | MOOD (03/03) — **카메라 촬영 → AI 무드 분석** | `components/StepMood.tsx` |
 | 05 | PORTAL OPENING — 연출 + 프리로드(카메라·MediaPipe·배경) | `components/StepOpening.tsx` |
 | 06 | WORLD REVEAL — 결과 World 공개, BGM 페이드인 | `components/StepReveal.tsx` |
 | 07 | EXPERIENCE — 실시간 합성 + 촬영 | `components/StepMirror.tsx` + `MirrorStage.tsx` |
@@ -159,7 +160,10 @@ QR 로 이어지는 모바일 화면은 아래 두 개입니다.
 거의 모든 카피/데이터는 [`config/portal.config.ts`](config/portal.config.ts) 하나에 모여 있습니다.
 
 - `COPY` — 화면에 보이는 모든 문구 (`\n` 은 줄바꿈으로 렌더링됩니다)
-- `MOOD_QUESTION` / `JOURNEY_QUESTION` — 03·04 화면의 질문과 선택지
+- `JOURNEY_QUESTION` — 03 화면의 질문과 선택지
+- `MOOD_QUESTION` — 무드 3종의 **라벨 표** (버튼이 아닙니다 — 무드는 04에서 AI가 판정)
+- `JOURNEY_CARD_MOOD` — 03 카드 미리보기 컷에 쓸 대표 무드
+- `MOOD_ANALYSIS_CONFIG` — 04 무드 분석 파라미터 (캡처 크기·샘플 영역·폴백 임계값)
 - `WORLDS` — World 목록 (표기명, 내부 축, gradient, 배경 이미지, BGM 경로)
 - `ACTIVE_WORLD_IDS` — **이번 체험에서 실제로 쓰는 World 목록 (임시값, 회의 확정 대기)**
 - `MOOD_TO_TIME` / `JOURNEY_TO_SCENE` — 선택값 → 내부 축 우선순위
@@ -202,25 +206,30 @@ World 속성과의 매칭 점수로 결정됩니다 (조합별 하드코딩 테�
 ### 실사 배경은 조합 단위로 붙습니다
 
 World 는 위 매칭 점수로 고르지만, **실사 배경은 (컬러웨이 × 무드 × 여행 스타일) 조합에
-직접 매핑**됩니다. `config/portal.config.ts` 의 `COMBO_BACKGROUNDS` 에 등록된 조합만 실사
-배경이 나가고, 나머지는 World 의 gradient 목업이 그대로 쓰입니다.
+직접 매핑**됩니다. `config/portal.config.ts` 의 `comboBackgroundImage()` 가 파일명 토큰으로
+경로를 조립하고, 파일이 없으면 World 의 gradient 목업으로 폴백합니다.
 
-| 무드 키 | 03 화면 라벨 | 파일명 표기 |
+| 무드 키 | 04 화면 라벨 | 파일명 표기 |
 |---|---|---|
-| `light` | 설렘 (새로운 순간을 기대하는) | `romance` |
-| `calm` | 여유 (천천히 즐기고 싶은) | `healing` |
-| `bold` | 자신감 (나답게 뽐내고 싶은) | — (배경 미준비) |
+| `light` | 설렘 (새로운 순간을 기대하는) | `sul` |
+| `calm` | 여유 (천천히 즐기고 싶은) | `calm` |
+| `bold` | 자신감 (나답게 뽐내고 싶은) | `confidence` |
 
-| 여행 키 | 04 화면 라벨 | 파일명 표기 |
+| 여행 키 | 03 화면 라벨 | 파일명 표기 |
 |---|---|---|
 | `explore` | 도시 곳곳 둘러보기 | `city` |
-| `culture` | 쇼핑·문화 즐기기 | `shopping` |
-| `relax` | 여유롭게 쉬기 | `rest` |
+| `culture` | 쇼핑·문화 즐기기 | `shop` |
+| `relax` | 여유롭게 쉬기 | `relax` |
 
-현재는 **PINK × (설렘·여유) × 3가지 여행 = 6조합**에 배경이 있습니다
-(`public/worlds/pink_{romance|healing}_{city|shopping|rest}.png`). 배경을 추가할 때는
-파일을 `public/worlds/` 에 넣고 `COMBO_BACKGROUNDS` 에 한 줄만 등록하면 06 리빌 화면과
-07 합성 캔버스에 함께 반영됩니다.
+**핑크·베이지 × 무드 3 × 여정 3 = 18조합** 전량에 배경이 있고, 조합마다 두 컷
+(**variant 1 = 03 선택 카드용, variant 2 = 07 촬영 배경용**)이 있어 총 36장입니다.
+
+```
+/worlds/{색}/{색}_{무드토큰}_{여정토큰}{버전}.png
+예) /worlds/pink/pink_confidence_shop2.png
+```
+
+자세한 규약은 아래 "조합별 실사 배경 18조합" 절을 보세요.
 
 ⚠️ `WORLDS[].backgroundImage` 에 **없는 파일 경로를 적지 마세요.** 06 리빌은 CSS
 `url()` 로 배경을 깔기 때문에, 파일이 404 나면 gradient 로 폴백되지 않고 배경이 아예
@@ -463,25 +472,12 @@ maskContrast: 400, // 반투명 경계 띠를 사람/배경으로 미는 세기(
 움직임 떨림이 크면 `SEGMENTATION_CONFIG.modelSelection` 을 `1`(landscape) → `0`(general) 로
 바꿔 비교해볼 수 있습니다.
 
-### 3. World·UI 실사 배경 AI 생성 파이프라인
+### 3. ~~World·UI 실사 배경 AI 생성 파이프라인~~ (폐기)
 
-`WORLDS[].backgroundImage` 자리에 넣을 실사 배경을 OpenAI 이미지 모델(`gpt-image-2`)로
-일괄 생성하는 스크립트를 추가했습니다.
-
-- **`scripts/generate-images.mjs`** — 의존성 없이(내장 fetch) 실행. World 배경 + UI 이미지를
-  한 번에 생성해 `public/` 아래 알맞은 경로(`worlds/`, `ui/`)로 저장합니다.
-
-  ```bash
-  export OPENAI_API_KEY="sk-..."
-  node scripts/generate-images.mjs                 # 전체 생성
-  node scripts/generate-images.mjs intro-window    # 특정 이미지 1개만
-  ```
-
-  각 프롬프트에 "인물·텍스트 없음 + (배경은) 아래-가운데 비우기 + 시간대 팔레트"를
-  명시해 07 합성 배경으로 바로 쓸 수 있게 했습니다.
-- `config/portal.config.ts` 의 활성 4개 World(`newyork_attitude`, `paris_dawn`,
-  `milano_terrace`, `seoul_neon`)에 `backgroundImage: "/worlds/{id}.webp"` 경로를 켰습니다.
-  파일이 없으면 기존대로 gradient 로 폴백하므로 지금 켜둬도 안전합니다.
+> 이미지 생성 스크립트(`scripts/generate-images.mjs`, `generate-worlds.mjs`)는 **삭제되었습니다.**
+> 제공된 OpenAI 키가 Free Tier 라 이미지 생성(`gpt-image` / DALL·E) 호출을 쓸 수 없고,
+> 실제 배경은 촬영본 36장(`public/worlds/`)으로 대체됐기 때문입니다.
+> AI는 이미지를 만드는 대신 **보고 판정하는** 용도로 옮겨갔습니다 — 아래 "AI 무드 분석" 참고.
 
 ### 4. 01 START 화면 리디자인
 
@@ -496,7 +492,6 @@ maskContrast: 400, // 반투명 경계 띠를 사람/배경으로 미는 세기(
 |---|---|
 | `components/StepMoment.tsx` | **신규** — 09 YOUR MCM MOMENT (촬영 사진 확인) |
 | `components/StepShop.tsx` | **신규** — TODAY'S MCM + SAVED ITEMS |
-| `scripts/generate-images.mjs` | **신규** — 배경/UI 이미지 일괄 생성(gpt-image-2) |
 | `CLAUDE.md` | **신규** — 로컬 Claude Code용 프로젝트 가이드 |
 | `components/StepIntro.tsx` | 시작 화면 빈티지 리디자인 |
 | `components/StepHandoff.tsx` | QR 중심 재정리 + SHOP 으로 넘어가는 "다음" |
@@ -599,8 +594,9 @@ public/worlds/{색}/{색}_{무드토큰}_{여정토큰}{버전}.png
   촬영 화면에서 인물 뒤로 합성됩니다.
 - **02·03·04 선택(`StepFrame`)** — 우상단 `01 / 03` 표기를 **가운데 진행 점(dot)** 으로
   바꾸고, 공통 배경(qr)의 종이 베일을 옅게 낮췄습니다.
-- **04 나라 선택(`StepJourney`)** — SVG 아이콘 카드를 **조합 실사 사진 카드(variant 1)** 로
-  교체했습니다. 이미 고른 (컬러웨이 × 무드) 기준으로 각 여정의 미리보기가 뜹니다.
+- **나라 선택(`StepJourney`)** — SVG 아이콘 카드를 **조합 실사 사진 카드(variant 1)** 로
+  교체했습니다. (이 화면이 무드보다 앞으로 오면서, 미리보기 컷은 `JOURNEY_CARD_MOOD`
+  대표 무드로 고정됩니다 — 아래 "AI 무드 분석" 참고.)
 - **05 로딩(`StepOpening`)** — 배경(load) 베일을 낮추고 문구를
   "고객님에게 어울리는 장소를 찾고 있어요." 로 맞췄습니다.
 
@@ -668,6 +664,40 @@ npm run dev
 같은지 확인을 요청합니다. 키가 노출되었거나 분실된 경우에는 Owner가 기존 키를 폐기하고
 새 키를 전달해야 합니다.
 
+#### ⚠️ Free Tier 일일 요청 한도 (RPD 50) — ✅ Tier 1 상향으로 해결
+
+> **해결됨 (8/19).** 결제 수단을 등록해 Tier 1로 올렸습니다 — `gpt-4o-mini` 의 RPD가
+> 50 → **10,000** 으로 늘었습니다. 아래는 문제가 있었던 당시 기록이자, 왜 라우트별로
+> 다른 모델을 쓰게 됐는지("8. AI 모델 선택" 절)의 배경입니다.
+
+현재 키는 처음 **Free Tier** 였어서 `gpt-4o-mini` 의 **일일 요청이 50건**으로 묶여 있었습니다.
+초과하면 429 `rate_limit_exceeded` 가 떨어지고 약 30분 뒤에 풀립니다.
+
+```
+Rate limit reached for gpt-4o-mini ... on requests per day (RPD): Limit 50, Used 50
+```
+
+부스는 체험 1회당 AI를 **2번** 부릅니다.
+
+| 호출 | 용도 | 실패 시 |
+|---|---|---|
+| `/api/analyze-mood` | 카메라 의상 무드 판정 (핵심) | 로컬 색 분석 폴백 |
+| `/api/passport` | 여권 카피 생성 | 결정적 폴백 문구 |
+
+Free Tier 그대로였다면 **하루 최대 25명**이면 한도가 끝나고 그 뒤 방문객은 전부 폴백으로
+돌아갈 뻔했습니다. 두 라우트 모두 폴백이 있어 화면이 죽지는 않지만, AI 체험이라는 기획
+의도가 사라지는 문제였습니다.
+
+> 이미지 생성이 막힌 것과는 **별개의 제약**이었습니다. 그건 모델 접근 권한 문제,
+> 이건 요청 수 문제라 Tier 를 올리자 둘 다 함께 풀렸습니다.
+
+Tier 1 이후에도 계정 대시보드를 다시 확인해 보니 **`gpt-4o-mini` 만 유일하게 일일 한도가
+명시돼** 있고 다른 모델들은 RPM 만 있었습니다. 이 발견이 "8. AI 모델 선택" 절에서
+`analyze-mood` 라우트를 다른 모델로 옮긴 계기입니다.
+
+폴백이 실제로 얼마나 도는지는 `window.__portalEvents` 의
+`mood_analyzed { source: "ai" | "local" }` 비율로 부스 운영 중에 바로 확인할 수 있습니다.
+
 ### 5. 빌드 타입 에러 정리
 
 `lib/composite.ts` 의 `buildMaskFilter()` 에서 `SEGMENTATION_CONFIG` 값이 `as const` 로
@@ -699,9 +729,219 @@ npm run dev
 
 ### 남은 작업 (에셋·결정 대기)
 
-- **MCM 로고** — 현재 검정 placeholder 마크. 실제 로고(SVG/PNG)로 교체 예정.
-- **제품 사진** — 목업은 보스턴백. 핑크는 기존 컷, 베이지는 `beigebag.png` 적용. 목업과
-  동일한 보스턴백 컷으로 맞추려면 핑크 컷도 교체 필요.
-- **무드(설렘/여유/자신감) 선택 화면** — 무드는 여정보다 먼저 고르므로 조합 이미지를 쓸 수
-  없어, 사진 카드로 갈지(무드 전용 이미지 필요) 추상 비주얼을 유지할지 미정.
-- **"AI가 스타일을 분석하고 있어요" 분석 로딩 화면** — 목업에 별도로 있으나 미구현.
+- ~~**제품 사진**~~ — 실제 제품 사진(Ottomar 비세토스 위켄더)으로 교체 완료. "9. 제품
+  사진·설명 교체" 절 참고.
+- **03 활동 카드 미리보기 컷** — 무드가 뒤로 가면서 카드 사진은 `JOURNEY_CARD_MOOD`
+  (기본 `calm`) 한 무드로 고정됩니다. 활동 전용 컷 3장을 따로 준비할지 회의 필요.
+- **무드 판정 임계값 튜닝** — 부스 조명이 정해지면 `MOOD_ANALYSIS_CONFIG` 의 폴백 임계값과
+  샘플 영역을 현장에서 한 번 맞춰야 합니다.
+
+---
+
+## 8/19 수정 내용 — AI 무드 분석 전환 + 플로우 순서 변경
+
+제공된 OpenAI 키가 **Free Tier 라 이미지 생성(gpt-image / DALL·E)을 쓸 수 없습니다.**
+그래서 "World 배경을 AI로 생성한다"는 방안을 폐기하고(배경은 이미 촬영본 36장으로 대체됨),
+AI를 **"보고 판정하는"** 쪽 — 카메라로 의상을 읽어 무드를 정하는 쪽 — 으로 옮겼습니다.
+Vision 입력은 일반 `chat.completions` 호출이라 Free Tier 에서도 제약 없이 동작합니다.
+
+```
+전:  제품 → 무드(수동 선택) → 활동 → 로딩 → 리빌 → 촬영 → 사진확인 → QR
+후:  제품 → 활동 → 무드(AI 카메라 분석) → 로딩 → 리빌 → 촬영 → 사진확인 → QR
+```
+
+World 결정 규칙(`resolveWorld`)·조합 배경 파일명 규약·합성 파이프라인·백엔드 연동은
+**전부 그대로**입니다. AI가 정한 무드가 기존 `MoodKey` 로 그대로 들어가기 때문에,
+백엔드로 올라가는 `SessionMetadata` 도 바뀌지 않았습니다.
+
+### 1. AI 무드 분석 (04 MOOD)
+
+```
+카메라 프리뷰(가이드 프레임)
+  → [AI 무드 분석 시작] → 현재 프레임 캡처(768px JPEG)
+  → POST /api/analyze-mood  (서버가 OpenAI Vision 호출)
+  → 결과 카드(컬러 칩 + 무드 + 한 줄 코멘트) → [다음] → 05 프리로드
+```
+
+| 파일 | 역할 |
+|---|---|
+| `components/StepMood.tsx` | 3단계 화면 — `guide` → `analyzing` → `result` |
+| `lib/moodAnalysis.ts` | 프레임 캡처, 서버 호출, **로컬 색 분석 폴백** |
+| `app/api/analyze-mood/route.ts` | 서버 전용 OpenAI Vision 호출 (`detail: "low"`) — 현재 모델은 "8. AI 모델 선택" 절 참고 |
+| `MOOD_ANALYSIS_CONFIG` | 캡처 크기 · 샘플 영역 · 폴백 임계값 |
+
+무드 3종은 **기존 키와 라벨을 그대로** 씁니다 (배경 파일명·World 매핑이 이 값을 쓰므로).
+
+| 무드 | 내부 키 | AI 토큰 | 파일명 토큰 | 의상 특성 |
+|---|---|---|---|---|
+| 설렘 | `light` | `EXCITEMENT` | `sul` | 고명도·고채도, 비비드·파스텔, 포인트 컬러 |
+| 여유 | `calm` | `RELAXATION` | `calm` | 중명도 내추럴, 베이지·아이보리·카키, 코지한 룩 |
+| 자신감 | `bold` | `CONFIDENCE` | `confidence` | 저명도 모노톤, 블랙·딥네이비·차콜, 미니멀 시크 |
+
+> ⚠️ AI 토큰에 **`CALM` 을 쓰지 마세요.** 내부 키 `calm` 은 *여유*(RELAXATION)라서
+> 이름이 겹치면 정반대로 매핑됩니다. 세 번째 무드는 화면 라벨이 "자신감"이므로
+> `CONFIDENCE` 로 통일했고, 라우트는 이 세 토큰 외의 값이 오면 502를 돌려 폴백에 맡깁니다.
+
+### 2. 실패하면 — 로컬 색 분석 폴백
+
+키 미설정(503)·요청 한도(429)·오프라인·타임아웃 등 **어떤 실패에도 화면이 멈추지 않습니다.**
+`analyzeMoodLocally()` 가 캡처 프레임의 상반신 영역 픽셀을 직접 읽어 평균 명도·채도로
+같은 3종을 판정하고 그대로 진행합니다(난수 없음 — 같은 사진이면 항상 같은 결과).
+여권(`lib/passport.ts`)이 쓰는 "실패해도 폴백으로 진행" 규약과 동일합니다.
+
+부스 조명에 맞춰 `MOOD_ANALYSIS_CONFIG` 로 조정하세요.
+
+```ts
+sampleRegion: { x: 0.3, y: 0.45, w: 0.4, h: 0.45 },  // 색을 재는 상반신 박스(화면 가이드와 동일)
+boldMaxLum: 0.3,        // 이 아래로 어두우면 자신감
+earthMaxChroma: 0.7,    // 웜톤 어스톤(베이지·카키)은 밝아도 여유로 붙잡음
+pastelMinLum: 0.75, pastelMinChroma: 0.15,  // 화사한 파스텔 → 설렘
+vividMinChroma: 0.6,                        // 채도 높은 포인트 컬러 → 설렘
+```
+
+판정 순서는 **① 어두움 → 자신감, ② 웜톤 어스톤 → 여유, ③ 파스텔 *또는* 비비드 → 설렘,
+④ 나머지 → 여유** 입니다. 순서와 OR 조합에 이유가 있습니다.
+
+- ②가 ③보다 먼저인 이유: 베이지·아이보리는 **밝지만** 여유여야 합니다. 밝기를 보는 ③이
+  먼저 걸리면 베이지가 설렘으로 샙니다.
+- ③이 AND 가 아니라 OR 인 이유: 파스텔은 밝지만 채도가 낮고, 비비드 블루는 채도가 높지만
+  파랑이라 어둡게 느껴집니다. AND 로 묶으면 둘 다 빠집니다.
+- 명도를 HSL 의 `L` 로 재지 않는 이유: 채도가 높을수록 `L` 이 0.5 로 눌려, 비비드 옐로우가
+  "밝은 옷"인데도 고명도 판정을 통과하지 못합니다. 대신 BT.601 체감 밝기를 씁니다.
+- 채도를 HSL 의 `S` 로 재지 않는 이유: 밝은 저채도 색에서 부풀려집니다. 베이지의 HSL `S` 는
+  0.36 이나 돼 화사한 포인트 컬러로 오인됩니다. 대신 순색도(`delta/max`)를 씁니다.
+
+폴백이 실제로 얼마나 도는지는 `window.__portalEvents` 의
+`mood_analyzed { source: "ai" | "local" }` 로 확인합니다.
+
+### 3. 카메라 확보 시점이 05 → 04 로 앞당겨짐
+
+무드 분석에 카메라가 필요하므로 권한 팝업이 04에서 뜹니다. 스트림은 여전히
+`PortalRuntime` 이 소유하고 `acquireCamera()` 가 중복 호출을 dedupe 하므로,
+**05 프리로드와 07 합성이 같은 스트림을 재사용**합니다(팝업은 체험당 한 번).
+
+### 4. 활동 선택(03) — 화면은 그대로, 순서만 이동
+
+카드 3장·라벨·리플 연출은 손대지 않았습니다. 다만 이 시점엔 무드가 아직 없어 조합 사진을
+만들 수 없으므로, 미리보기 컷은 `JOURNEY_CARD_MOOD`(기본 `calm`)의 variant 1 으로 고정합니다.
+실제 촬영 배경(variant 2)은 AI가 정한 무드를 그대로 따르므로 영향 없습니다.
+
+### 5. 개인정보
+
+분석용 프레임은 **저장하지 않습니다.** 판정을 위해 OpenAI 로 한 번 전송되고 메모리에서
+버려지며, 백엔드(`/api/v1/sessions`)로 올라가는 사진은 07에서 찍은 합성 결과뿐입니다.
+외부 전송이 일어나므로 01 START 동의 문구(`COPY.consentLabel`)에 "AI 스타일 분석"을
+명시해 두었습니다 — 문구를 손볼 때 이 부분을 빼지 마세요.
+
+### 6. 04 결과 화면 — 자동 진행 타이머
+
+무드 분석 결과 카드는 `MOOD_ANALYSIS_CONFIG.resultAutoAdvanceMs`(기본 **6초**) 안에 [다음]을
+누르면 그 클릭으로, 누르지 않으면 타이머로 05 프리로드에 자동 진입합니다. 손님이 결과만 보고
+그냥 자리를 떠도 다음 손님을 위해 화면이 멈춰 있지 않게 하는 안전장치입니다.
+
+두 경로 모두 같은 ripple(`"final"`) 전환을 타 연출이 동일합니다 — 자동 진행은 클릭 좌표가
+없어 [다음] 버튼 중심에서 물결이 퍼지도록 만들었습니다.
+
+| 파일 | 역할 |
+|---|---|
+| `components/StepMood.tsx` (`ResultScreen`) | 타이머 · 카운트다운 바 · 중복 전환 방지(`advancedRef`) |
+| `app/globals.css` (`@keyframes mood-countdown`) | 카운트다운 바 애니메이션 — 길이는 인라인 `animation-duration` 으로 config 값과 동기화 |
+| `MOOD_ANALYSIS_CONFIG.resultAutoAdvanceMs` | 자동 진행까지의 시간(ms). 코멘트를 길게 바꾸면 함께 늘리세요 |
+
+### 7. 여권 카피에 오늘 착장 정보 연결
+
+09 화면의 MCM TRAVEL PASSPORT 가 "여행 유형 / 추천 이유" 를 지을 때, 04에서 AI가 읽은
+**오늘 입고 온 옷의 색·무드**(`state.moodAnalysis`)를 재료로 함께 넘깁니다. 같은 제품·같은
+도시라도 손님마다 다른 문장이 나옵니다.
+
+> 착장 O: "시크한 블랙과 부드러운 핑크의 조화" · 착장 X: "부드러운 핑크가 우아한 아침을 완성해"
+> — 착장 없이는 제품·도시 조합에서만 나올 수 있는 일반적인 문장이었습니다.
+
+| 파일 | 변경 |
+|---|---|
+| `lib/passport.ts` | `PassportInput` 에 `outfitColorName?` / `outfitDescription?` 추가 (선택값) |
+| `app/api/passport/route.ts` | 프롬프트에 착장 재료 반영 지시 추가 + 길이(14~24자)·톤(마침표·종결어미 금지) 규칙 강화 + `normalizeReason()` 으로 마침표 후처리 |
+| `components/StepMoment.tsx` | `state.moodAnalysis?.dominantColor.name` / `.description` 을 요청에 실어 보냄 |
+
+값이 없으면(구버전 세션 등) 해당 줄 자체를 프롬프트에서 빼 빈 라벨이 남지 않습니다. 폴백 문구
+(`buildFallbackPassport`)에는 반영하지 않습니다 — 폴백은 네트워크 없이 결정적으로 계산돼야 합니다.
+
+### 8. AI 모델 선택 — 라우트별로 다른 모델을 씁니다
+
+Tier 1로 올라간 뒤 계정 대시보드에 열린 모델 목록을 확인해 보니 **`gpt-4o-mini` 만 유일하게
+일일 요청 한도(RPD)가 명시돼** 있고 나머지는 RPM 만 있었습니다(위 "Free Tier 일일 요청 한도"
+절 참고). 이를 기준으로 두 라우트를 각각 다시 골랐습니다.
+
+| 라우트 | 모델 | 이유 |
+|---|---|---|
+| `/api/analyze-mood` | **`gpt-5.6-luna`**, `reasoning_effort: "none"` | OpenAI가 "cost-sensitive, high-volume, latency-sensitive workloads" 용도로 설계한 모델 — 정확히 이 라우트(체험당 반드시 호출되는 3분류 작업)에 맞습니다. `none` 으로 내부 추론을 꺼서 응답이 빠릅니다(실측 1.8~3.1초, `reasoning_tokens: 0` 확인). RPD 상한 없음 |
+| `/api/passport` | **`gpt-4o-mini`** (유지) | `gpt-4.1-mini` 로 교체해 봤으나 튜닝된 14~24자 길이 제약을 표본 2/2에서 상당한 마진(27자, 31자)으로 초과해 되돌렸습니다. 체험 완료 시 1회만 호출돼 호출량이 적어 RPD 위험이 낮습니다 |
+
+> ⚠️ **`gpt-5.6-luna` 계열은 `max_tokens` 를 거부합니다** (`400 invalid_request_error:
+> unsupported_parameter`). `max_completion_tokens` 로 이름이 바뀌었습니다 — `gpt-4o-mini`
+> 시절 코드를 그대로 옮기면서 놓치기 쉬운 지점이라 `analyze-mood` 라우트에서 이미 고쳤습니다.
+> 앞으로 모델을 또 바꿀 때는 이 파라미터부터 확인하세요.
+
+**⚠️ 실행 전 확인 사항**
+
+- `gpt-5.6-luna` 는 신규 모델이라 **일부 프로젝트/리전에서는 접근이 막혀 있을 수 있습니다.**
+  접근이 없으면 `analyze-mood` 가 502 로 떨어지고 클라이언트가 조용히 로컬 색 분석 폴백으로
+  넘어갑니다 — 화면은 안 죽지만 **AI 분석이 매번 로컬로만 돌게 됩니다.** 부스 오픈 전에
+  실제 옷으로 한 번 테스트해서 `window.__portalEvents` 에 `mood_analyzed { source: "ai" }` 가
+  찍히는지 확인하세요.
+- 두 라우트가 서로 다른 모델을 쓰므로, 키를 발급한 OpenAI 프로젝트가 **`gpt-5.6-luna` 와
+  `gpt-4o-mini` 둘 다** 접근 가능한지 확인이 필요합니다.
+- `.env.local` 의 `OPENAI_API_KEY` 는 그대로 두면 됩니다 — 모델 이름은 라우트 코드의 상수라
+  서버 재시작 없이 다음 요청부터 바로 적용됩니다(Next dev 서버가 route.ts 변경을 자동 반영).
+
+### 9. 제품 사진·설명 교체 — Ottomar 비세토스 위켄더
+
+위 "남은 작업"에 있던 목업 불일치 문제(핑크·베이지 사진이 실제 제품과 다름)가 해결됐습니다.
+실제 제품 사진 2장을 받아 교체했습니다.
+
+| 컬러웨이 | 사진 | 카드 표기 |
+|---|---|---|
+| pink | `public/products/Ottomar_Weeke_der_in_Visetos-pink.webp` | Soft Pink |
+| beige | `public/products/Ottomar_Weeke_der_in_Visetos-beige.webp` | cognac |
+
+`Product.name` 을 "Ottomar 비세토스 위켄더" 로, `Product.line` 은 빈 문자열로 바꿨습니다(이름에
+이미 "비세토스"가 들어가 중복되므로). `components/StepProduct.tsx` 는 `line` 이 없으면 카드
+하단의 `<br/>` 을 건너뛰도록 손봤습니다(빈 줄이 남지 않게). 기존
+`stark_backpack_visetos-{pink,beige}.png` 는 코드·문서 어디에도 참조가 없어 삭제했습니다.
+
+### 10. MCM 로고 실제 에셋 적용
+
+01 START 의 엠블럼과 09 여권 헤더의 배지, 둘 다 검정 SVG 플레이스홀더였는데 실제 로고
+(`public/ui/MCM_logo.png`, 투명 배경 검정 날개 마크)로 교체했습니다. 로드에 실패하면(파일
+누락 등) 기존 SVG 로 자동 폴백합니다(다른 이미지 자산과 같은 패턴).
+
+| 파일 | 위치 |
+|---|---|
+| `components/StepIntro.tsx` (`Emblem`) | 01 START, "MCM PORTAL" 제목 위 |
+| `components/StepMoment.tsx` (`Emblem`) | 09 여권 카드 헤더 우측 |
+
+### 변경/추가 파일 요약
+
+| 파일 | 변경 |
+|---|---|
+| `lib/moodAnalysis.ts` | **신규** — 프레임 캡처 · 로컬 색 분석 폴백 · 서버 호출 |
+| `app/api/analyze-mood/route.ts` | **신규** — 서버 전용 OpenAI Vision 무드 판정 (`gpt-5.6-luna`) |
+| `components/StepMood.tsx` | 수동 선택 3버튼 → 카메라 촬영 + AI 분석 3단계 화면 + 결과 자동 진행 타이머 |
+| `components/StepJourney.tsx` | 진행 점 03→02, 리플 `final`→`step`, 카드 컷 무드 고정 |
+| `components/PortalApp.tsx` | 렌더 순서 journey → mood |
+| `lib/FlowContext.tsx` | 전환 순서 변경, `ANSWER_MOOD` → `ANALYZE_MOOD`, `moodAnalysis` 상태 |
+| `lib/types.ts` | `MoodAnalysis` / `MoodLevel` 타입, `StepId` 주석 재정렬 |
+| `lib/analytics.ts` | `mood_selected` → `mood_analyzed { value, source }` |
+| `lib/passport.ts` | `PassportInput` 에 `outfitColorName?` / `outfitDescription?` 추가 |
+| `app/api/passport/route.ts` | 착장 반영 프롬프트 + 길이·톤 규칙 강화 + `normalizeReason()` (모델은 `gpt-4o-mini` 유지) |
+| `components/StepMoment.tsx` | 여권 요청에 착장 정보 전달 + 로고 실사 적용 |
+| `components/StepIntro.tsx` | 로고 실사 적용 |
+| `components/StepProduct.tsx` | `product.line` 빈 값 처리(카드 하단 빈 줄 방지) |
+| `config/products.config.ts` | 제품명·컬러웨이 라벨·사진 경로를 Ottomar 실사로 교체 |
+| `app/globals.css` | `@keyframes mood-countdown` (결과 화면 자동 진행 바) |
+| `config/portal.config.ts` | `MOOD_ANALYSIS_CONFIG`(+`resultAutoAdvanceMs`) · `JOURNEY_CARD_MOOD` · `moodLabel()` · 무드 화면 COPY · 동의 문구 |
+| `public/products/Ottomar_Weeke_der_in_Visetos-{pink,beige}.webp` | **신규** — 실제 제품 사진 |
+| `public/ui/MCM_logo.png` | **신규** — 실제 MCM 로고 |
+| `public/products/stark_backpack_visetos-{pink,beige}.png` | **삭제** — 신규 사진으로 대체, 참조 없음 |
+| `scripts/generate-images.mjs` | **삭제** — Free Tier 로 이미지 생성 불가 |
+| `scripts/generate-worlds.mjs` | **삭제** — 위와 동일 |

@@ -13,8 +13,9 @@ import type { ColorwayKey, JourneyKey, MoodKey, WorldId } from "@/lib/types";
 export type PortalEvent =
   | { name: "experience_started" }
   | { name: "product_selected"; productId: string; colorwayKey: ColorwayKey }
-  | { name: "mood_selected"; value: MoodKey }
   | { name: "journey_selected"; value: JourneyKey }
+  // 04 무드 분석 결과. source 로 실제 AI 응답 / 로컬 폴백 비율을 볼 수 있습니다.
+  | { name: "mood_analyzed"; value: MoodKey; source: "ai" | "local" }
   | { name: "world_resolved"; worldId: WorldId; mood: MoodKey; journey: JourneyKey }
   | { name: "portal_entered"; worldId: WorldId }
   | { name: "photo_captured"; worldId: WorldId }

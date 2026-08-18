@@ -17,21 +17,21 @@ import type { Product, SavedItem } from "@/lib/types";
 export const PRODUCTS: Product[] = [
   {
     id: "stark_backpack_visetos",
-    name: "Stark Backpack",
-    line: "in Visetos",
+    name: "Ottomar 비세토스 위켄더",
+    line: "",
     price: 1290000,
     colorways: [
       {
         key: "pink",
-        label: "PINK",
+        label: "Soft Pink",
         hex: "#e8b9c4",
-        image: "/products/stark_backpack_visetos-pink.png",
+        image: "/products/Ottomar_Weeke_der_in_Visetos-pink.webp",
       },
       {
         key: "beige",
-        label: "BEIGE",
+        label: "cognac",
         hex: "#c9b79c",
-        image: "/products/stark_backpack_visetos-beige.png",
+        image: "/products/Ottomar_Weeke_der_in_Visetos-beige.webp",
       },
     ],
   },

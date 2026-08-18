@@ -3,11 +3,36 @@
 // /config/products.config.ts — this file only defines the shapes, it shouldn't
 // need to change often.
 
-/** 03 MOOD 화면의 선택지. 내부적으로 TimeOfDay 축으로 번역됩니다. */
+/**
+ * 04 MOOD 화면의 결과값. 내부적으로 TimeOfDay 축으로 번역됩니다.
+ * ⚠️ 사용자가 직접 고르지 않고 **카메라로 찍은 의상을 AI가 분석해** 정합니다
+ *    (lib/moodAnalysis.ts). 키 이름과 라벨은 수동 선택 시절 그대로 유지합니다 —
+ *    배경 파일명 토큰(sul/calm/confidence)과 월드 매핑이 이 값을 쓰기 때문입니다.
+ */
 export type MoodKey = "light" | "calm" | "bold";
 
-/** 04 TRAVEL STYLE 화면의 선택지. 내부적으로 SceneType 축으로 번역됩니다. */
+/** 03 TRAVEL STYLE 화면의 선택지. 내부적으로 SceneType 축으로 번역됩니다. */
 export type JourneyKey = "explore" | "culture" | "relax";
+
+/** 명도·채도의 3단계 표기. AI 응답과 로컬 폴백이 같은 척도를 씁니다. */
+export type MoodLevel = "HIGH" | "MEDIUM" | "LOW";
+
+/**
+ * 04 MOOD 화면에서 도출된 무드 분석 결과.
+ *
+ * `source` 는 이 결과가 실제 AI(OpenAI Vision) 응답인지, 네트워크·키 문제로 내려간
+ * 로컬 색 분석 폴백인지를 구분합니다 (여권 PassportData.source 와 같은 규약).
+ */
+export interface MoodAnalysis {
+  mood: MoodKey;
+  /** 의상에서 뽑은 대표 색 — 결과 화면의 컬러 칩에 씁니다. */
+  dominantColor: { name: string; hex: string };
+  brightnessLevel: MoodLevel;
+  saturationLevel: MoodLevel;
+  /** 왜 이 무드인지 한 줄 설명 (한국어). */
+  description: string;
+  source: "ai" | "local";
+}
 
 /** 02 PRODUCT 화면에서 고르는 컬러웨이. */
 export type ColorwayKey = "pink" | "beige";
@@ -34,8 +59,8 @@ export type WorldId =
 export type StepId =
   | "intro" // 01 START
   | "product" // 02 PRODUCT       (01/03)
-  | "mood" // 03 MOOD             (02/03)
-  | "journey" // 04 TRAVEL STYLE  (03/03)
+  | "journey" // 03 TRAVEL STYLE  (02/03)
+  | "mood" // 04 MOOD             (03/03) — 카메라 촬영 + AI 무드 분석
   | "opening" // 05 PORTAL OPENING (프리로드 구간)
   | "reveal" // 06 WORLD REVEAL
   | "experience" // 07 EXPERIENCE

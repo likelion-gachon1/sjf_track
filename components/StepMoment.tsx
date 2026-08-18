@@ -87,6 +87,9 @@ export default function StepMoment() {
       worldName: world.name,
       mood: state.answers.mood,
       journey: state.answers.journey,
+      // 04에서 AI가 읽어낸 실제 착장 — 카피가 오늘 입고 온 옷을 반영하게 합니다.
+      outfitColorName: state.moodAnalysis?.dominantColor.name,
+      outfitDescription: state.moodAnalysis?.description,
     }).then(setPassport);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -241,17 +244,33 @@ function Row({ label, value }: { label: string; value: string | null }) {
   );
 }
 
+// 여권 헤더 우측 엠블럼. /ui/MCM_logo.png (검정 날개 마크) 를 씁니다.
+// 로드에 실패하면 기존 금색 SVG 배지로 자동 폴백합니다.
 function Emblem() {
+  const [broken, setBroken] = useState(false);
+
+  if (broken) {
+    return (
+      <svg width="34" height="34" viewBox="0 0 34 34" fill="none" aria-hidden>
+        <circle cx="17" cy="17" r="15.5" stroke="#b08d57" strokeWidth="1" />
+        <circle cx="17" cy="17" r="11" stroke="#b08d57" strokeWidth="0.5" opacity="0.6" />
+        <path
+          d="M17 7l2.6 6.3 6.8.5-5.2 4.4 1.7 6.6L17 27.7l-5.7-2.4 1.7-6.6-5.2-4.4 6.8-.5z"
+          fill="#b08d57"
+          opacity="0.85"
+        />
+      </svg>
+    );
+  }
+
   return (
-    <svg width="34" height="34" viewBox="0 0 34 34" fill="none" aria-hidden>
-      <circle cx="17" cy="17" r="15.5" stroke="#b08d57" strokeWidth="1" />
-      <circle cx="17" cy="17" r="11" stroke="#b08d57" strokeWidth="0.5" opacity="0.6" />
-      <path
-        d="M17 7l2.6 6.3 6.8.5-5.2 4.4 1.7 6.6L17 27.7l-5.7-2.4 1.7-6.6-5.2-4.4 6.8-.5z"
-        fill="#b08d57"
-        opacity="0.85"
-      />
-    </svg>
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src="/ui/MCM_logo.png"
+      alt="MCM"
+      onError={() => setBroken(true)}
+      className="h-9 w-auto object-contain"
+    />
   );
 }
 

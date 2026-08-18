@@ -76,7 +76,7 @@ function ProductCard({ product, colorway, disabled, onSelect }: ProductCardProps
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={colorway.image}
-              alt={`${product.name} ${product.line} — ${colorway.label}`}
+              alt={[product.name, product.line].filter(Boolean).join(" ") + ` — ${colorway.label}`}
               onError={() => setImageBroken(true)}
               className="h-full w-full object-contain p-3"
             />
@@ -88,8 +88,12 @@ function ProductCard({ product, colorway, disabled, onSelect }: ProductCardProps
         <span className="mt-7 block text-base tracking-widest2 text-ink">{colorway.label}</span>
         <span className="mt-3 block text-xs leading-relaxed text-ink/50">
           {product.name}
-          <br />
-          {product.line}
+          {product.line && (
+            <>
+              <br />
+              {product.line}
+            </>
+          )}
         </span>
       </span>
     </button>

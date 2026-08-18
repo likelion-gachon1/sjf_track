@@ -32,21 +32,33 @@ export const COPY = {
   // 01 START
   introTagline: "MCM과 함께\n새로운 World로 떠나보세요.",
   introSubline: "당신의 선택으로 시작되는\nMCM EXPERIENCE",
-  consentLabel: "체험을 위한 촬영 및 일시 보관에 동의합니다.",
+  // ⚠️ 04 무드 분석은 촬영한 프레임을 AI(OpenAI)로 **전송**합니다. 저장은 하지 않지만
+  //    외부 전송이 일어나므로 동의 문구에 반드시 남겨두세요.
+  consentLabel: "체험을 위한 촬영·AI 스타일 분석 및 일시 보관에 동의합니다.",
   startButton: "시작하기",
 
   // 02 PRODUCT
   productHeading: "어떤 MCM과 함께 할까요?",
   productSubline: "원하는 제품을 선택해주세요.",
 
-  // 03 MOOD
-  moodHeading: "이번 여행은 어떤 느낌이었으면 좋겠나요?",
-  moodSubline: "원하는 분위기를 선택해주세요.",
-
-  // 04 TRAVEL STYLE
+  // 03 TRAVEL STYLE
   journeyHeading: "여행지에서 가장 하고 싶은 건?",
   journeySubline: "원하는 여행 스타일을 선택해주세요.",
   journeyFootnote: "선택과 동시에 다음 단계로 이동합니다.",
+
+  // 04 MOOD — 카메라로 의상을 찍어 AI가 무드를 판정하는 화면
+  moodHeading: "오늘의 스타일을 보여주세요.",
+  moodSubline: "AI가 의상의 색과 톤을 읽어 어울리는 무드를 찾아드려요.",
+  moodGuide: "상의가 가이드 영역 안에 오도록 서주세요.",
+  moodScanButton: "AI 무드 분석 시작",
+  moodAnalyzing: "AI가 고객님의 스타일을\n분석하고 있어요.",
+  moodResultEyebrow: "YOUR MOOD",
+  moodColorLabel: "MAIN COLOR",
+  moodNext: "다음",
+  /** 결과 카드가 자동으로 넘어간다는 안내 — 손님이 눌러야만 하는 줄 알고 서 있지 않게. */
+  moodAutoAdvanceHint: "잠시 후 자동으로 이동합니다.",
+  /** 카메라를 끝내 못 켰을 때 — 손님을 세워두지 않고 폴백 결과로 진행하는 출구. */
+  moodCameraSkip: "이대로 진행하기",
 
   // 05 PORTAL OPENING
   openingMessage: "고객님에게 어울리는\n장소를 찾고 있어요.",
@@ -111,16 +123,24 @@ export const COPY = {
 } as const;
 
 // -----------------------------------------------------------------------------
-// 2. 취향 입력 질문 — 03 MOOD / 04 TRAVEL STYLE 화면의 버튼형 질문
+// 2. 취향 입력 — 03 TRAVEL STYLE 의 버튼형 질문 + 무드 라벨 표
 //    라벨의 "\n" 은 2줄 표기용 줄바꿈입니다.
 //    ⚠️ 무드는 내부적으로 시간대(TimeOfDay), 여행 스타일은 공간 성격(SceneType)
 //       축으로 번역됩니다. 낮/노을/밤 같은 축 이름을 라벨에 넣지 마세요.
 // -----------------------------------------------------------------------------
+
+/**
+ * 무드 3종의 표기 라벨.
+ *
+ * ⚠️ **더 이상 버튼으로 렌더링되지 않습니다.** 무드는 04 화면에서 AI가 판정하며,
+ *    이 표는 결과 화면·여권·매핑 검증(buildWorldReason / debugMappingTable)이
+ *    쓰는 **라벨 원천**으로만 남아 있습니다.
+ * ⚠️ key 는 바꾸지 마세요 — comboBackgroundImage 의 배경 파일명 토큰과
+ *    MOOD_TO_TIME 매핑이 이 값을 씁니다. (light = 설렘, calm = 여유, bold = 자신감)
+ */
 export const MOOD_QUESTION: QuestionDef<MoodKey> = {
   id: "mood",
   prompt: COPY.moodHeading,
-  // ⚠️ key 는 바꾸지 마세요 — COMBO_BACKGROUNDS 의 배경 매핑이 이 값을 씁니다.
-  //    (light = 설렘, calm = 여유, bold = 자신감)
   options: [
     { key: "light", label: "설렘", description: "새로운 순간을 기대하는" },
     { key: "calm", label: "여유", description: "천천히 즐기고 싶은" },
@@ -140,6 +160,20 @@ export const JOURNEY_QUESTION: QuestionDef<JourneyKey> = {
 
 export const QUESTIONS = [MOOD_QUESTION, JOURNEY_QUESTION];
 
+/** 무드 키 → 화면 표기 라벨 ("light" → "설렘"). */
+export function moodLabel(mood: MoodKey): string {
+  return MOOD_QUESTION.options.find((o) => o.key === mood)?.label ?? "";
+}
+
+/**
+ * 03 활동 선택 카드의 미리보기 컷에 쓸 대표 무드.
+ *
+ * 이 화면에서는 무드가 아직 정해지지 않았으므로(무드는 다음 화면에서 AI가 판정)
+ * 한 무드의 variant 1 컷을 고정으로 씁니다. 카드에 걸리는 사진만 바꾸고 싶으면
+ * 이 값만 바꾸세요 — 실제 촬영 배경(variant 2)에는 영향을 주지 않습니다.
+ */
+export const JOURNEY_CARD_MOOD: MoodKey = "calm";
+
 // -----------------------------------------------------------------------------
 // 3. World 목록 — World는 (도시 × 시간대 × 공간 성격) 으로 정의됩니다.
 //
@@ -150,7 +184,7 @@ export const QUESTIONS = [MOOD_QUESTION, JOURNEY_QUESTION];
 //    gradientStops: 07 캔버스 합성용 (gradient 와 같은 값을 유지해 주세요)
 //    backgroundImage: World 공통 실사 배경. 비어 있으면 gradient 로 폴백합니다.
 //                     ⚠️ 실사 배경은 현재 World 단위가 아니라 **조합 단위**로 붙습니다.
-//                     아래 COMBO_BACKGROUNDS 를 쓰세요 (없는 파일 경로를 여기 적으면
+//                     아래 comboBackgroundImage() 를 쓰세요 (없는 파일 경로를 여기 적으면
 //                     gradient 폴백이 막혀 배경이 빈 화면으로 나옵니다).
 //    bgm         : "/bgm/{id}.mp3" — 파일이 없어도 앱은 무음으로 정상 동작합니다
 //
@@ -429,11 +463,10 @@ export function buildWorldReason(
   journey: JourneyKey,
   world: WorldDef
 ): string {
-  const moodLabel = MOOD_QUESTION.options.find((o) => o.key === mood)?.label ?? "";
   const journeyLabel =
     JOURNEY_QUESTION.options.find((o) => o.key === journey)?.label ?? "";
 
-  return `${flatLabel(moodLabel)} · ${flatLabel(journeyLabel)} — ${world.displayName}, ${
+  return `${flatLabel(moodLabel(mood))} · ${flatLabel(journeyLabel)} — ${world.displayName}, ${
     TIME_LABEL[world.timeOfDay]
   }`;
 }
@@ -485,12 +518,12 @@ export function debugMappingTable(): MappingTableRow[] {
 //    조합 단위**로 붙습니다. 여기 등록된 조합만 실사 배경이 나가고, 나머지 조합은
 //    World 의 gradient(목업)가 그대로 쓰입니다.
 //
-//    무드 키 ↔ 03 MOOD 화면 라벨 (파일명 표기)
+//    무드 키 ↔ 04 MOOD 화면 라벨 (파일명 표기) — 무드는 AI가 판정합니다
 //      light = 설렘  (새로운 순간을 기대하는)  → sul
 //      calm  = 여유  (천천히 즐기고 싶은)      → calm
 //      bold  = 자신감(나답게 뽐내고 싶은)      → confidence
 //
-//    여행 스타일 키 ↔ 04 화면 라벨 (파일명 표기)
+//    여행 스타일 키 ↔ 03 화면 라벨 (파일명 표기)
 //      explore = 도시 곳곳 둘러보기 → city
 //      culture = 쇼핑·문화 즐기기   → shop
 //      relax   = 여유롭게 쉬기      → relax
@@ -526,7 +559,7 @@ const JOURNEY_IMG_TOKEN: Record<JourneyKey, string> = {
 /**
  * 조합에 맞는 실사 배경 경로.
  *
- * variant 1 = 04 나라 선택 카드용, variant 2 = 07 촬영 합성 배경용
+ * variant 1 = 03 활동 선택 카드용, variant 2 = 07 촬영 합성 배경용
  * (같은 조합이라도 카드와 촬영 배경에 다른 컷을 씁니다). 기본값은 카드용 1.
  * 선택값이 하나라도 없으면 undefined 를 돌려줘 gradient 로 폴백합니다.
  *
@@ -588,6 +621,60 @@ export const CAMERA_CONFIG = {
   width: 1280,
   height: 720,
   mirror: true,
+} as const;
+
+// -----------------------------------------------------------------------------
+// 6-1. AI 무드 분석 설정 — 04 화면에서 의상을 찍어 무드를 판정할 때 쓰는 값.
+//
+//    captureWidth : OpenAI 로 보낼 이미지의 가로 폭. 카메라 원본(1280)을 그대로
+//                   보내면 전송량·토큰만 커지므로 줄여서 보냅니다.
+//    sampleRegion : **로컬 폴백**이 색을 재는 상반신 박스(프레임 대비 비율).
+//                   얼굴·머리카락·뒷배경이 섞이면 판정이 흐려지므로 가운데 아래쪽만 봅니다.
+//                   가이드 프레임 오버레이도 같은 값을 써서 화면과 계산이 어긋나지 않습니다.
+//    임계값       : 로컬 폴백의 분류 기준. 부스 조명이 어두워 전부 "자신감"으로 나오면
+//                   boldMaxLum 을 낮추고, 조명이 세서 전부 "설렘"으로 나오면
+//                   lightMinLum 을 올리세요. (AI 응답이 성공하면 이 값들은 쓰이지 않습니다)
+//
+//    ⚠️ 밝기는 HSL 의 L 이 아니라 **눈이 느끼는 밝기(BT.601 luminance)**, 채도는 HSL 의 S 가
+//       아니라 **순색도(chroma = delta/max)** 기준입니다. HSL 을 쓰면 비비드 색의 L 이 0.5 로
+//       눌리고 베이지의 S 가 부풀려져 판정이 뒤집힙니다 (lib/moodAnalysis.ts 주석 참고).
+// -----------------------------------------------------------------------------
+export const MOOD_ANALYSIS_CONFIG = {
+  captureWidth: 768,
+  jpegQuality: 0.8,
+  /** x/y/w/h — 0~1 비율. 기본값은 화면 가운데 아래쪽(상의가 오는 자리). */
+  sampleRegion: { x: 0.3, y: 0.45, w: 0.4, h: 0.45 },
+  /** 이 아래로 어두우면 자신감(bold). */
+  boldMaxLum: 0.3,
+  /**
+   * 웜톤 어스톤(베이지·아이보리·카키·올리브)을 여유(calm)로 붙잡는 순색도 상한.
+   * 베이지는 밝지만 여유여야 하므로 밝기 판정보다 먼저 걸러집니다. 이 값을 넘는
+   * 같은 색상대(비비드 옐로우·오렌지)는 어스톤이 아니라 포인트 컬러로 봅니다.
+   */
+  earthMaxChroma: 0.7,
+  /**
+   * 설렘(light)은 두 갈래입니다 — 둘 중 **하나만** 만족해도 설렘입니다.
+   *   ① 화사한 파스텔 : 아주 밝고(pastelMinLum) 색기가 조금이라도 있는(pastelMinChroma)
+   *   ② 비비드 포인트 : 밝기와 무관하게 순색도가 높은(vividMinChroma)
+   * 둘을 AND 로 묶으면 파스텔(밝지만 순색도 낮음)과 비비드 블루(순색도 높지만 파랑이라
+   * 어둡게 느껴짐)가 둘 다 빠집니다. 반대로 OR 를 헐겁게 잡으면 소프트 그레이(밝기만
+   * 높음)와 데님(순색도만 어중간)이 딸려 들어오므로, 두 문턱을 각각 높게 잡았습니다.
+   */
+  pastelMinLum: 0.75,
+  pastelMinChroma: 0.15,
+  vividMinChroma: 0.6,
+  /** 서버 라우트 응답을 기다리는 시간. 넘으면 로컬 폴백으로 내려갑니다. */
+  timeoutMs: 12_000,
+  /**
+   * 결과 카드를 자동으로 넘기기까지의 시간(ms).
+   *
+   * 이 시간 안에는 손님이 [다음]을 눌러 직접 넘길 수 있고, 넘기지 않으면 자동으로
+   * 05 프리로드로 이동합니다. 부스에 손님이 서 있다가 그냥 가버려도 다음 손님을
+   * 위해 화면이 멈춰 있지 않게 하는 안전장치입니다.
+   * 컬러 칩·무드·한 줄 코멘트를 읽는 데 필요한 시간 기준이라, 코멘트를 길게 바꾸면
+   * 이 값도 함께 늘려주세요. 남은 시간은 [다음] 아래 진행 바로 보입니다.
+   */
+  resultAutoAdvanceMs: 6_000,
 } as const;
 
 // -----------------------------------------------------------------------------

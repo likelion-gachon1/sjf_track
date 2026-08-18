@@ -1,7 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { COPY, JOURNEY_QUESTION, comboBackgroundImage } from "@/config/portal.config";
+import {
+  COPY,
+  JOURNEY_CARD_MOOD,
+  JOURNEY_QUESTION,
+  comboBackgroundImage,
+} from "@/config/portal.config";
 import { track } from "@/lib/analytics";
 import { usePortalFlow } from "@/lib/FlowContext";
 import type { JourneyKey, QuestionOption } from "@/lib/types";
@@ -9,16 +14,15 @@ import { useHoverRipple } from "@/lib/useHoverRipple";
 import { useRipple } from "@/lib/useRipple";
 import StepFrame from "./StepFrame";
 
-// 04 TRAVEL STYLE (03 / 03) — 목업: 조합 실사 사진(variant 1) 카드 3장.
-// 이미 고른 (컬러웨이 × 무드) 기준으로 각 여정의 미리보기 배경을 보여줍니다.
-// 선택과 동시에 05로 이동합니다.
+// 03 TRAVEL STYLE (02 / 03) — 목업: 조합 실사 사진(variant 1) 카드 3장.
+// 선택과 동시에 04 무드 분석으로 이동합니다.
 export default function StepJourney() {
   const { state, dispatch } = usePortalFlow();
   const { trigger, isTransitioning } = useRipple();
 
   return (
     <StepFrame
-      stepNumber={3}
+      stepNumber={2}
       heading={COPY.journeyHeading}
       footnote={COPY.journeyFootnote}
     >
@@ -28,14 +32,16 @@ export default function StepJourney() {
             key={option.key}
             option={option}
             // 카드 미리보기는 variant 1 을 씁니다 (촬영 배경은 variant 2).
+            // 이 시점에는 무드가 아직 없으므로(다음 화면에서 AI가 판정) 대표 무드
+            // 컷을 고정으로 씁니다 — JOURNEY_CARD_MOOD 참고.
             image={comboBackgroundImage(
               state.colorwayKey,
-              { mood: state.answers.mood, journey: option.key },
+              { mood: JOURNEY_CARD_MOOD, journey: option.key },
               1
             )}
             disabled={isTransitioning}
             onSelect={(e) =>
-              trigger(e, "final", () => {
+              trigger(e, "step", () => {
                 dispatch({ type: "ANSWER_JOURNEY", value: option.key });
                 track({ name: "journey_selected", value: option.key });
               })

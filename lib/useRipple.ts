@@ -5,7 +5,7 @@ import { RIPPLE_CONFIG } from "@/config/portal.config";
 
 /**
  * "step"  — 02→03, 03→04. 퍼지면서 사라지고, 애니메이션이 끝나면 전환합니다.
- * "final" — 04→05. 화면을 완전히 덮은 상태를 유지한 채 전환한 뒤 걷힙니다
+ * "final" — 04(무드 결과)→05. 화면을 완전히 덮은 상태를 유지한 채 전환한 뒤 걷힙니다
  *           (ripple 색이 05 배경과 같아 이음매 없이 이어집니다).
  */
 export type RippleMode = "step" | "final";

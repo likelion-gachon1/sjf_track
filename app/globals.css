@@ -26,6 +26,18 @@ body {
   }
 }
 
+/* 04 무드 결과 카드의 자동 이동 남은 시간 표시.
+   실제 이동은 JS 타이머가 담당하고 이 바는 표시만 합니다 — 길이는 인라인
+   animation-duration 으로 MOOD_ANALYSIS_CONFIG.resultAutoAdvanceMs 와 맞춥니다. */
+@keyframes mood-countdown {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
 /* 재생 여부는 RIPPLE_CONFIG.respectReducedMotion 으로 JS 에서 판정합니다.
    여기에 @media (prefers-reduced-motion) 로 숨기면 그 설정을 덮어쓸 수 없게 됩니다. */
 

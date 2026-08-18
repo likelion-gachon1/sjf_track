@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { COPY } from "@/config/portal.config";
 import { setAnalyticsSessionId, track } from "@/lib/analytics";
 import { createSessionId, usePortalFlow } from "@/lib/FlowContext";
@@ -70,18 +71,33 @@ export default function StepIntro() {
   );
 }
 
-// MCM 엠블럼 자리 — 실제 MCM 로고 에셋(SVG/PNG)으로 교체 가능. 목업에 맞춰 검정 톤.
+// MCM 엠블럼. /ui/MCM_logo.png (검정 날개 마크, 투명 배경) 를 씁니다.
+// 로드에 실패하면(파일 누락 등) 기존 SVG 플레이스홀더로 자동 폴백합니다.
 function Emblem() {
+  const [broken, setBroken] = useState(false);
+
+  if (broken) {
+    return (
+      <svg width="60" height="60" viewBox="0 0 52 52" fill="none" aria-hidden>
+        <circle cx="26" cy="26" r="24" stroke="#0a0a0a" strokeWidth="1.2" />
+        <path
+          d="M26 12l4 9 9 1-6.5 6 1.7 9-8.2-4.6L17.5 47l1.7-9L12.7 22l9-1z"
+          fill="#0a0a0a"
+          opacity="0.9"
+          transform="scale(0.7) translate(11 6)"
+        />
+        <path d="M14 26h24" stroke="#0a0a0a" strokeWidth="0.8" opacity="0.5" />
+      </svg>
+    );
+  }
+
   return (
-    <svg width="60" height="60" viewBox="0 0 52 52" fill="none" aria-hidden>
-      <circle cx="26" cy="26" r="24" stroke="#0a0a0a" strokeWidth="1.2" />
-      <path
-        d="M26 12l4 9 9 1-6.5 6 1.7 9-8.2-4.6L17.5 47l1.7-9L12.7 22l9-1z"
-        fill="#0a0a0a"
-        opacity="0.9"
-        transform="scale(0.7) translate(11 6)"
-      />
-      <path d="M14 26h24" stroke="#0a0a0a" strokeWidth="0.8" opacity="0.5" />
-    </svg>
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src="/ui/MCM_logo.png"
+      alt="MCM"
+      onError={() => setBroken(true)}
+      className="h-16 w-auto object-contain"
+    />
   );
 }

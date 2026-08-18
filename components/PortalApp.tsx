@@ -24,8 +24,8 @@ function PortalScreens() {
     <FadeStep key={state.step} disabled={state.step === "opening"}>
       {state.step === "intro" && <StepIntro />}
       {state.step === "product" && <StepProduct />}
-      {state.step === "mood" && <StepMood />}
       {state.step === "journey" && <StepJourney />}
+      {state.step === "mood" && <StepMood />}
       {state.step === "opening" && <StepOpening />}
       {state.step === "reveal" && <StepReveal />}
       {state.step === "experience" && <StepMirror />}
