@@ -32,11 +32,11 @@ export const COPY = {
   // 01 START
   introTagline: "MCM과 함께\n새로운 World로 떠나보세요.",
   introSubline: "당신의 선택으로 시작되는\nMCM EXPERIENCE",
-  consentLabel: "촬영 이미지 활용에 동의합니다.",
+  consentLabel: "체험을 위한 촬영 및 일시 보관에 동의합니다.",
   startButton: "시작하기",
 
   // 02 PRODUCT
-  productHeading: "어떤 MCM과 함께 떠날까요?",
+  productHeading: "어떤 MCM과 함께 할까요?",
   productSubline: "원하는 제품을 선택해주세요.",
 
   // 03 MOOD
@@ -49,10 +49,10 @@ export const COPY = {
   journeyFootnote: "선택과 동시에 다음 단계로 이동합니다.",
 
   // 05 PORTAL OPENING
-  openingMessage: "당신에게 어울리는\nWorld를 찾고 있습니다.",
+  openingMessage: "고객님에게 어울리는\n장소를 찾고 있어요.",
 
   // 06 WORLD REVEAL
-  revealEyebrow: "YOUR MCM WORLD",
+  revealEyebrow: "Your MCM world is…",
   revealCta: "PORTAL 입장하기",
 
   // 07 EXPERIENCE
@@ -495,9 +495,9 @@ export function debugMappingTable(): MappingTableRow[] {
 //      culture = 쇼핑·문화 즐기기   → shop
 //      relax   = 여유롭게 쉬기      → relax
 //
-//    18조합 전량이 아래 COMBO_BACKGROUNDS 에 등록돼 있습니다 (핑크·베이지 각 9개).
-//    각 조합은 버전 1·2 두 장이 있으며 기본은 1을 씁니다. 파일은
-//    public/worlds/{색}/ 아래에 있습니다.
+//    18조합(핑크·베이지 × 무드 3 × 여정 3)은 comboBackgroundImage() 가 파일명 토큰으로
+//    경로를 만듭니다. 각 조합은 버전 1·2 두 장(1=선택 카드, 2=촬영 배경)이 있으며,
+//    파일은 public/worlds/{색}/ 아래에 있습니다.
 // -----------------------------------------------------------------------------
 
 /**
@@ -510,51 +510,51 @@ export function debugMappingTable(): MappingTableRow[] {
  *
  * 18조합(핑크·베이지 × 무드 3 × 여정 3) 전량 등록. 파일이 없으면 gradient 로 폴백합니다.
  */
-export const COMBO_BACKGROUNDS: Record<string, string> = {
-  // PINK
-  "pink|light|explore": "/worlds/pink/pink_sul_city1.png",
-  "pink|light|culture": "/worlds/pink/pink_sul_shop1.png",
-  "pink|light|relax": "/worlds/pink/pink_sul_relax1.png",
-  "pink|calm|explore": "/worlds/pink/pink_calm_city1.png",
-  "pink|calm|culture": "/worlds/pink/pink_calm_shop1.png",
-  "pink|calm|relax": "/worlds/pink/pink_calm_relax1.png",
-  "pink|bold|explore": "/worlds/pink/pink_confidence_city1.png",
-  "pink|bold|culture": "/worlds/pink/pink_confidence_shop1.png",
-  "pink|bold|relax": "/worlds/pink/pink_confidence_relax1.png",
-  // BEIGE
-  "beige|light|explore": "/worlds/beige/beige_sul_city1.png",
-  "beige|light|culture": "/worlds/beige/beige_sul_shop1.png",
-  "beige|light|relax": "/worlds/beige/beige_sul_relax1.png",
-  "beige|calm|explore": "/worlds/beige/beige_calm_city1.png",
-  "beige|calm|culture": "/worlds/beige/beige_calm_shop1.png",
-  "beige|calm|relax": "/worlds/beige/beige_calm_relax1.png",
-  "beige|bold|explore": "/worlds/beige/beige_confidence_city1.png",
-  "beige|bold|culture": "/worlds/beige/beige_confidence_shop1.png",
-  "beige|bold|relax": "/worlds/beige/beige_confidence_relax1.png",
+// 내부 키 → 파일명 토큰.
+const MOOD_IMG_TOKEN: Record<MoodKey, string> = {
+  light: "sul",
+  calm: "calm",
+  bold: "confidence",
 };
 
-/** 조합에 맞는 실사 배경 경로. 아직 준비되지 않은 조합이면 undefined. */
+const JOURNEY_IMG_TOKEN: Record<JourneyKey, string> = {
+  explore: "city",
+  culture: "shop",
+  relax: "relax",
+};
+
+/**
+ * 조합에 맞는 실사 배경 경로.
+ *
+ * variant 1 = 04 나라 선택 카드용, variant 2 = 07 촬영 합성 배경용
+ * (같은 조합이라도 카드와 촬영 배경에 다른 컷을 씁니다). 기본값은 카드용 1.
+ * 선택값이 하나라도 없으면 undefined 를 돌려줘 gradient 로 폴백합니다.
+ *
+ * 파일 규약: /worlds/{색}/{색}_{무드토큰}_{여정토큰}{버전}.png
+ */
 export function comboBackgroundImage(
   colorway: ColorwayKey | null,
-  answers: Answers
+  answers: Answers,
+  variant: 1 | 2 = 1
 ): string | undefined {
   const { mood, journey } = answers;
   if (!colorway || !mood || !journey) return undefined;
-  return COMBO_BACKGROUNDS[`${colorway}|${mood}|${journey}`];
+  return `/worlds/${colorway}/${colorway}_${MOOD_IMG_TOKEN[mood]}_${JOURNEY_IMG_TOKEN[journey]}${variant}.png`;
 }
 
 /**
- * 화면에 실제로 쓸 World.
- * 조합 전용 배경이 있으면 `backgroundImage` 를 그것으로 덮어쓰고, 없으면 World 를
- * 그대로 돌려줍니다(= gradient 목업 유지). 06 리빌 화면과 07 합성 캔버스가 모두
- * `world.backgroundImage` 한 곳만 보므로, 이 함수만 거치면 양쪽에 함께 반영됩니다.
+ * 화면에 실제로 쓸 World. 조합 전용 배경이 있으면 `backgroundImage` 를 덮어씁니다.
+ *
+ * ⚠️ 07 촬영 합성과 05 프리로드가 이 함수를 쓰며 **variant 2**(기본값)를 씁니다.
+ *    06 리빌 화면은 이 함수를 쓰지 않고 비행기 창문 배경(/ui/bg1.jpg)을 씁니다.
  */
 export function applyComboBackground(
   world: WorldDef,
   colorway: ColorwayKey | null,
-  answers: Answers
+  answers: Answers,
+  variant: 1 | 2 = 2
 ): WorldDef {
-  const image = comboBackgroundImage(colorway, answers);
+  const image = comboBackgroundImage(colorway, answers, variant);
   return image ? { ...world, backgroundImage: image } : world;
 }
 

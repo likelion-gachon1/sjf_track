@@ -74,7 +74,15 @@ export default function StepOpening() {
   }, [colorwayKey, dispatch, journey, mood, runtime]);
 
   return (
-    <div className="flex h-full min-h-screen flex-col items-center justify-center gap-10 bg-paper px-8 text-center">
+    <div
+      className="flex h-full min-h-screen flex-col items-center justify-center gap-10 bg-cover bg-center px-8 text-center"
+      style={{
+        // 05 로딩 화면 배경(load). 종이빛 베일을 얹어 어두운 스피너·문구가 읽히게 하고,
+        // 파일이 없으면 기존 종이색(paper)으로 폴백합니다.
+        backgroundImage:
+          "linear-gradient(rgba(250,248,245,0.35), rgba(250,248,245,0.35)), url(/ui/load.jpg), linear-gradient(#faf8f5, #faf8f5)",
+      }}
+    >
       <svg
         width="132"
         height="132"

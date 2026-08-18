@@ -531,70 +531,80 @@ QR로 이어지는 모바일 결과 페이지를 연결했습니다. 백엔드 �
 
 ## 8/18 수정 내용
 
-이번 작업은 크게 세 가지입니다. **(1) 조합별 실사 배경을 18조합 전량으로 확장하고,
-(2) 컬러웨이를 black → beige 로 바꾸고, (3) 09 MOMENT 에 실시간 AI 여권
-(MCM TRAVEL PASSPORT)을 붙였습니다.** 마지막으로 기존 타입 에러도 정리했습니다.
+이 날 작업은 다섯 갈래입니다. **(1) 조합별 실사 배경을 18조합 전량으로 확장하고 카드용·
+촬영용 버전을 나눴고, (2) 컬러웨이를 black → beige 로 바꾸고, (3) 09 MOMENT 에 실시간 AI
+여권(MCM TRAVEL PASSPORT)을 붙였으며, (4) 피그마 목업에 맞춰 시작·리빌·선택·로딩 화면을
+다시 디자인**했습니다. 마지막으로 기존 타입 에러도 정리했습니다.
 
-### 1. 조합별 실사 배경 18조합 전량 연결
+### 1. 조합별 실사 배경 18조합 + 버전 분리 (카드=1 · 촬영=2)
 
-기존에는 핑크·무드 2개(설렘/여유)만, 6장의 배경이 등록돼 있었습니다. `/img` 폴더의
-촬영본(핑크·베이지 × 무드 3 × 여정 3 = 18조합, 각 2버전)을 `public/worlds/` 아래로
-옮기고 `COMBO_BACKGROUNDS` 에 **18조합을 전부 등록**했습니다. 이제 자신감(bold)과
-베이지까지 모두 실사 배경이 나갑니다.
+`/img` 촬영본(핑크·베이지 × 무드 3 × 여정 3 = 18조합, 각 2버전)을 `public/worlds/` 아래로
+옮기고, 조합 배경 경로를 정적 표(map) 대신 **파일명 토큰으로 만드는 함수**
+`comboBackgroundImage()` 로 바꿨습니다. 이제 자신감(bold)·베이지까지 18조합 전부 실사
+배경이 나갑니다.
 
 ```
-public/worlds/{색}/{색}_{무드}_{여정}{버전}.png
-  예) public/worlds/pink/pink_sul_city1.png
-      public/worlds/beige/beige_confidence_relax1.png
+public/worlds/{색}/{색}_{무드토큰}_{여정토큰}{버전}.png
+  예) public/worlds/pink/pink_sul_city1.png       (04 나라 선택 카드)
+      public/worlds/pink/pink_sul_city2.png       (07 촬영 합성 배경)
 ```
 
-파일명 토큰은 내부 키와 아래처럼 대응합니다. 각 조합에는 버전 1·2 두 장이 있으며
-**기본은 1** 을 씁니다(2로 바꾸려면 `COMBO_BACKGROUNDS` 경로 끝의 숫자만 바꾸면 됩니다).
+파일명 토큰은 내부 키와 아래처럼 대응합니다.
 
-| 무드 키 | 라벨 | 파일 토큰 |
-|---|---|---|
-| `light` | 설렘 | `sul` |
-| `calm` | 여유 | `calm` |
-| `bold` | 자신감 | `confidence` |
+| 무드 키 | 라벨 | 토큰 |  | 여정 키 | 라벨 | 토큰 |
+|---|---|---|---|---|---|---|
+| `light` | 설렘 | `sul` |  | `explore` | 도시 곳곳 둘러보기 | `city` |
+| `calm` | 여유 | `calm` |  | `culture` | 쇼핑·문화 즐기기 | `shop` |
+| `bold` | 자신감 | `confidence` |  | `relax` | 여유롭게 쉬기 | `relax` |
 
-| 여정 키 | 라벨 | 파일 토큰 |
-|---|---|---|
-| `explore` | 도시 곳곳 둘러보기 | `city` |
-| `culture` | 쇼핑·문화 즐기기 | `shop` |
-| `relax` | 여유롭게 쉬기 | `relax` |
+**버전 규약**: 같은 조합이라도 화면에 따라 다른 컷을 씁니다.
 
-배경 결정 구조(`comboBackgroundImage` / `applyComboBackground`)는 그대로입니다 — 06 리빌과
-07 합성이 모두 `world.backgroundImage` 한 곳만 보므로, `COMBO_BACKGROUNDS` 한 줄만 고치면
-양쪽에 함께 반영됩니다. 파일이 없는 조합은 기존대로 gradient 로 폴백합니다.
+- `variant 1` — 04 나라 선택 화면의 **미리보기 카드**
+- `variant 2` — 07 촬영 화면의 **인물 뒤 합성 배경**
 
-> ⚠️ 06 리빌 화면의 **도시 이름**은 여전히 기존 점수 매칭(`resolveWorld`)을 따릅니다.
-> 배경 이미지는 조합별로 정확히 나가지만, 일부 조합은 도시 라벨과 이미지 무드가 어긋날 수
-> 있습니다. 도시 라벨까지 18조합에 직접 고정하려면 별도 매핑표가 필요합니다.
-
-> 참고: 이전에 쓰던 `public/worlds/pink_romance_*.png`, `pink_healing_*.png` 6장은 더 이상
-> 참조되지 않습니다(삭제해도 무방).
+`comboBackgroundImage(colorway, answers, variant)` 로 뽑고, 촬영/프리로드가 쓰는
+`applyComboBackground(...)` 는 기본이 `variant 2` 입니다. 파일이 없는 조합은 gradient 로
+폴백합니다.
 
 ### 2. 컬러웨이 black → beige 전환
 
-새 배경 세트가 `pink` / `beige` 기준이라, 두 번째 컬러웨이를 `black` 에서 `beige` 로
-바꿨습니다. `ColorwayKey`(`lib/types.ts`), 제품 정의(`config/products.config.ts`),
-`colorwayScore`(`config/portal.config.ts`)를 함께 수정했습니다.
+새 배경 세트가 `pink` / `beige` 기준이라 두 번째 컬러웨이를 `beige` 로 바꿨습니다.
+`ColorwayKey`(`lib/types.ts`), 제품 정의(`config/products.config.ts`),
+`colorwayScore`(`config/portal.config.ts`)를 함께 수정했고, **베이지 가방 사진**
+(`public/products/stark_backpack_visetos-beige.png`)도 넣었습니다. 사진이 없으면 베이지색
+실루엣(SVG)으로 폴백합니다.
 
-> ⚠️ 02 제품 카드는 `/products/stark_backpack_visetos-beige.png` 를 찾습니다. 아직 파일이
-> 없으면 베이지색 실루엣(SVG)으로 폴백하므로 화면은 깨지지 않습니다. 베이지 가방 누끼 컷을
-> 그 경로에 넣어주세요.
+### 3. 피그마 목업 반영 — 시작·리빌·선택·로딩 화면
 
-### 3. 09 MOMENT — MCM TRAVEL PASSPORT (실시간 AI 멘트)
+목업 확정안에 맞춰 화면 겉모습을 다시 잡았습니다. 정적 배경 3장은 `public/ui/` 에
+있습니다(`bg1.jpg` 시작·리빌, `load.jpg` 로딩, `qr.jpg` 선택). 파일이 없으면 각각
+그라데이션으로 폴백합니다.
 
-촬영 사진 옆에 **여권 카드**를 발급합니다. 다섯 항목 중 출발지(MUNICH, MCM 창립 도시로
-고정)·도착지(매칭 World)·동행 제품(컬러웨이 + 제품명)은 이미 있는 상태값으로 조립하고,
-**여행 유형과 추천 이유 두 줄만 실시간 AI 로 생성**합니다.
+- **01 시작(`StepIntro`)** — 종이 카드·스탬프를 걷어내고 비행기 창문(bg1) 위에 바로
+  `MCM PORTAL` + `Where will MCM take you?` + 동의 체크 + `여행 시작하기`. 오디오 언락은
+  기존대로 클릭 핸들러 안에서 동기 호출합니다.
+- **06 리빌(`StepReveal`)** — 조합 배경 대신 **비행기 창문(bg1)** 위에
+  `Your MCM world is…` + 도착 도시명을 띄웁니다. 조합 실사 배경은 이 화면이 아니라 07
+  촬영 화면에서 인물 뒤로 합성됩니다.
+- **02·03·04 선택(`StepFrame`)** — 우상단 `01 / 03` 표기를 **가운데 진행 점(dot)** 으로
+  바꾸고, 공통 배경(qr)의 종이 베일을 옅게 낮췄습니다.
+- **04 나라 선택(`StepJourney`)** — SVG 아이콘 카드를 **조합 실사 사진 카드(variant 1)** 로
+  교체했습니다. 이미 고른 (컬러웨이 × 무드) 기준으로 각 여정의 미리보기가 뜹니다.
+- **05 로딩(`StepOpening`)** — 배경(load) 베일을 낮추고 문구를
+  "고객님에게 어울리는 장소를 찾고 있어요." 로 맞췄습니다.
+
+> ⚠️ 06 리빌의 **도시 이름**은 여전히 점수 매칭(`resolveWorld`)을 따릅니다. 일부 조합은
+> 도시 라벨과 촬영 배경의 무드가 어긋날 수 있고, 18조합에 도시를 직접 고정하려면 별도
+> 매핑표가 필요합니다.
+
+### 4. 09 MOMENT — MCM TRAVEL PASSPORT (실시간 AI 멘트)
+
+촬영 사진 옆에 **여권 카드**를 발급합니다. 출발지(MUNICH 고정)·도착지(매칭 World)·동행
+제품은 상태값으로 조립하고, **여행 유형과 추천 이유 두 줄만 실시간 AI 로 생성**합니다.
 
 - AI 호출은 브라우저가 아니라 서버 라우트 **`app/api/passport/route.ts`** 를 거칩니다.
-  키(`OPENAI_API_KEY`)는 서버에서만 읽히므로 화면·네트워크 탭에 노출되지 않습니다.
-- 키가 없거나 호출이 실패하면 `lib/passport.ts` 의 **결정적 폴백 문구**로 자동 대체됩니다
-  (부스 무중단). 즉 키를 안 넣어도 앱은 그대로 동작합니다.
-- 업로드 로직(`SET_SESSION_SHARE`·타임아웃/재시도)은 기존 그대로 두고 그 위에 얹었습니다.
+  키(`OPENAI_API_KEY`)는 서버에서만 읽혀 화면·네트워크 탭에 노출되지 않습니다.
+- 키가 없거나 실패하면 `lib/passport.ts` 의 결정적 폴백 문구로 자동 대체됩니다(무중단).
 
 ```
 # .env.local (git 제외 — 서버 전용, NEXT_PUBLIC_ 붙이지 말 것)
@@ -603,11 +613,11 @@ OPENAI_API_KEY=sk-...
 
 키를 넣은 뒤에는 `npm run dev` 를 재시작해야 반영됩니다(없으면 폴백으로 진행).
 
-### 4. 빌드 타입 에러 정리
+### 5. 빌드 타입 에러 정리
 
 `lib/composite.ts` 의 `buildMaskFilter()` 에서 `SEGMENTATION_CONFIG` 값이 `as const` 로
-리터럴 타입이 되어 "값이 1/100 이면 끔" 가드가 타입 비교로 막히던 문제를, 세 값을
-`number` 로 받아 해소했습니다(런타임 동작 동일). `npx tsc --noEmit` 통과합니다.
+리터럴 타입이 되어 "값이 1/100 이면 끔" 가드가 막히던 문제를, 세 값을 `number` 로 받아
+해소했습니다(런타임 동작 동일). `npx tsc --noEmit` 통과합니다.
 
 ### 변경/추가 파일 요약
 
@@ -616,12 +626,27 @@ OPENAI_API_KEY=sk-...
 | `lib/passport.ts` | **신규** — 여권 데이터 조립 + 폴백 + `/api/passport` 호출 |
 | `app/api/passport/route.ts` | **신규** — OpenAI 서버 라우트(키 서버 전용) |
 | `components/StepMoment.tsx` | 사진 옆 여권 카드 추가(기존 업로드 로직 유지) |
-| `config/portal.config.ts` | `COMBO_BACKGROUNDS` 18조합 전량 · 여권 COPY · `colorwayScore` beige |
+| `components/StepIntro.tsx` | 시작 화면 목업 리디자인(bg1, 카드 제거, 문구·버튼) |
+| `components/StepReveal.tsx` | 리빌 배경 bg1 + `Your MCM world is…` + 도시명 |
+| `components/StepFrame.tsx` | 진행 표시 → 가운데 점, 선택 배경(qr) 베일 완화 |
+| `components/StepJourney.tsx` | 나라 선택 → 조합 실사 사진 카드(variant 1) |
+| `components/StepOpening.tsx` | 로딩 배경(load) + 문구 |
+| `config/portal.config.ts` | `comboBackgroundImage`/`applyComboBackground` variant 지원 · 여권/화면 COPY · `colorwayScore` beige |
 | `config/products.config.ts` | 컬러웨이 `black` → `beige` |
 | `lib/types.ts` | `ColorwayKey` 를 `pink` / `beige` 로 |
 | `lib/composite.ts` | `buildMaskFilter` 타입 에러 수정 |
-| `public/worlds/pink/*`, `public/worlds/beige/*` | 조합별 실사 배경(각 18장, 버전 1·2) |
+| `public/worlds/{pink,beige}/*` | 조합별 실사 배경(각 18장, 버전 1·2) |
+| `public/ui/{bg1,load,qr}.jpg` | 시작·로딩·선택 정적 배경 |
+| `public/products/*-beige.png` | 베이지 가방 사진 |
 
-> 코드가 참조하는 건 버전 1(18장)뿐입니다. `public/worlds/` 의 png 는 용량이 크므로
-> (36장 ≈ 100MB) git 에 넣을 때는 필요한 것만 add 하거나 git-lfs 사용을 검토하세요.
-> `.env.local` 은 `.gitignore` 대상이라 커밋에 포함되지 않습니다.
+> `public/worlds/` 의 png 는 용량이 큽니다(36장 ≈ 100MB). git 에 넣을 때는 필요한 버전만
+> add 하거나 git-lfs 를 검토하세요. `.env.local` 은 `.gitignore` 대상이라 커밋에 안 들어갑니다.
+
+### 남은 작업 (에셋·결정 대기)
+
+- **MCM 로고** — 현재 검정 placeholder 마크. 실제 로고(SVG/PNG)로 교체 예정.
+- **제품 사진** — 목업은 보스턴백. 핑크는 기존 컷, 베이지는 `beigebag.png` 적용. 목업과
+  동일한 보스턴백 컷으로 맞추려면 핑크 컷도 교체 필요.
+- **무드(설렘/여유/자신감) 선택 화면** — 무드는 여정보다 먼저 고르므로 조합 이미지를 쓸 수
+  없어, 사진 카드로 갈지(무드 전용 이미지 필요) 추상 비주얼을 유지할지 미정.
+- **"AI가 스타일을 분석하고 있어요" 분석 로딩 화면** — 목업에 별도로 있으나 미구현.
