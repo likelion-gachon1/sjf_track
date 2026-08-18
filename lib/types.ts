@@ -48,13 +48,9 @@ export type SceneType = "street" | "culture" | "leisure";
 
 export type WorldId =
   | "paris_dawn"
-  | "monaco_night"
   | "seoul_neon"
   | "milano_terrace"
-  | "tokyo_mirage"
-  | "ibiza_sunset"
-  | "newyork_attitude"
-  | "santorini_breeze";
+  | "newyork_attitude";
 
 export type StepId =
   | "intro" // 01 START

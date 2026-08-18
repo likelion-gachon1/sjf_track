@@ -222,38 +222,7 @@ export const WORLDS: Record<WorldId, WorldDef> = {
     bgm: "/bgm/paris_dawn.mp3",
     textOn: "dark",
   },
-  santorini_breeze: {
-    id: "santorini_breeze",
-    displayName: "SANTORINI",
-    name: "산토리니 브리즈",
-    tagline: "하얀 벽과 바람이 만드는 여유",
-    timeOfDay: "day",
-    sceneType: "leisure",
-    gradient: "linear-gradient(135deg, #d9e8ef 0%, #eef2ea 50%, #f7f3ea 100%)",
-    gradientStops: [
-      { offset: 0, color: "#d9e8ef" },
-      { offset: 0.5, color: "#eef2ea" },
-      { offset: 1, color: "#f7f3ea" },
-    ],
-    bgm: "/bgm/santorini_breeze.mp3",
-    textOn: "dark",
-  },
-  monaco_night: {
-    id: "monaco_night",
-    displayName: "MONACO",
-    name: "모나코의 밤",
-    tagline: "블랙과 골드, 압도하는 존재감",
-    timeOfDay: "night",
-    sceneType: "leisure",
-    gradient: "linear-gradient(135deg, #0b0b0d 0%, #23201a 55%, #8a7245 100%)",
-    gradientStops: [
-      { offset: 0, color: "#0b0b0d" },
-      { offset: 0.55, color: "#23201a" },
-      { offset: 1, color: "#8a7245" },
-    ],
-    bgm: "/bgm/monaco_night.mp3",
-    textOn: "light",
-  },
+
   newyork_attitude: {
     id: "newyork_attitude",
     displayName: "NEW YORK",
@@ -274,22 +243,7 @@ export const WORLDS: Record<WorldId, WorldDef> = {
     bgm: "/bgm/newyork_attitude.mp3",
     textOn: "light",
   },
-  tokyo_mirage: {
-    id: "tokyo_mirage",
-    displayName: "TOKYO",
-    name: "도쿄 미라주",
-    tagline: "현실과 환상 사이, 몽환의 도시",
-    timeOfDay: "night",
-    sceneType: "street",
-    gradient: "linear-gradient(135deg, #0f0f14 0%, #3b2a5e 50%, #7c5cbf 100%)",
-    gradientStops: [
-      { offset: 0, color: "#0f0f14" },
-      { offset: 0.5, color: "#3b2a5e" },
-      { offset: 1, color: "#7c5cbf" },
-    ],
-    bgm: "/bgm/tokyo_mirage.mp3",
-    textOn: "light",
-  },
+
   milano_terrace: {
     id: "milano_terrace",
     displayName: "MILANO",
@@ -330,22 +284,7 @@ export const WORLDS: Record<WorldId, WorldDef> = {
     bgm: "/bgm/seoul_neon.mp3",
     textOn: "light",
   },
-  ibiza_sunset: {
-    id: "ibiza_sunset",
-    displayName: "IBIZA",
-    name: "이비자 선셋",
-    tagline: "노을 아래 자유로운 리듬",
-    timeOfDay: "golden",
-    sceneType: "leisure",
-    gradient: "linear-gradient(135deg, #ff9a56 0%, #ff6f91 50%, #6a3093 100%)",
-    gradientStops: [
-      { offset: 0, color: "#ff9a56" },
-      { offset: 0.5, color: "#ff6f91" },
-      { offset: 1, color: "#6a3093" },
-    ],
-    bgm: "/bgm/ibiza_sunset.mp3",
-    textOn: "light",
-  },
+
 };
 
 /**
@@ -591,25 +530,7 @@ export function applyComboBackground(
   return image ? { ...world, backgroundImage: image } : world;
 }
 
-// -----------------------------------------------------------------------------
-// 5. 대안 World — 미러 화면의 "다른 세계도 보기" 안건이 확정되면 되살립니다.
-//    현재 화면에서는 렌더링하지 않지만 설정은 남겨둡니다.
-// -----------------------------------------------------------------------------
-export const WORLD_ALTERNATES: Record<WorldId, [WorldId, WorldId]> = {
-  paris_dawn: ["santorini_breeze", "tokyo_mirage"],
-  santorini_breeze: ["paris_dawn", "milano_terrace"],
-  monaco_night: ["newyork_attitude", "tokyo_mirage"],
-  newyork_attitude: ["monaco_night", "seoul_neon"],
-  tokyo_mirage: ["monaco_night", "seoul_neon"],
-  milano_terrace: ["santorini_breeze", "ibiza_sunset"],
-  seoul_neon: ["ibiza_sunset", "newyork_attitude"],
-  ibiza_sunset: ["seoul_neon", "milano_terrace"],
-};
 
-export function getAlternateWorlds(worldId: WorldId): [WorldDef, WorldDef] {
-  const [a, b] = WORLD_ALTERNATES[worldId];
-  return [WORLDS[a], WORLDS[b]];
-}
 
 // -----------------------------------------------------------------------------
 // 6. 카메라 설정 — 07 화면에서 웹캠을 켤 때 쓰는 값.
