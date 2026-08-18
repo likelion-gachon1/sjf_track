@@ -132,7 +132,11 @@ export function drawWorldBackground(
  * SEGMENTATION_CONFIG 값으로 blur(부드럽게) + brightness(안쪽 깎기) + contrast(배경 비침 제거)를 조합합니다.
  */
 function buildMaskFilter(): string {
-  const { featherPx, maskErode, maskContrast } = SEGMENTATION_CONFIG;
+  // number 로 넓혀 받습니다: config 값이 `as const` 로 리터럴 타입이라, 아래의
+  // "값이 1/100 이면 끔(off)" 가드가 리터럴 비교로 막히는 것을 피합니다(런타임 동작 동일).
+  const featherPx: number = SEGMENTATION_CONFIG.featherPx;
+  const maskErode: number = SEGMENTATION_CONFIG.maskErode;
+  const maskContrast: number = SEGMENTATION_CONFIG.maskContrast;
   const parts: string[] = [];
   if (featherPx > 0) parts.push(`blur(${featherPx}px)`);
   if (maskErode !== 1) parts.push(`brightness(${maskErode})`);

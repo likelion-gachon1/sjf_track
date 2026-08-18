@@ -10,7 +10,7 @@ export type MoodKey = "light" | "calm" | "bold";
 export type JourneyKey = "explore" | "culture" | "relax";
 
 /** 02 PRODUCT 화면에서 고르는 컬러웨이. */
-export type ColorwayKey = "pink" | "black";
+export type ColorwayKey = "pink" | "beige";
 
 // -----------------------------------------------------------------------------
 // World 결정 축

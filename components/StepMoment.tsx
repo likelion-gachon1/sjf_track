@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { COPY } from "@/config/portal.config";
+import { COPY, WORLDS } from "@/config/portal.config";
 import { findProductChoice } from "@/config/products.config";
 import { usePortalFlow } from "@/lib/FlowContext";
 import { ApiError, TimeoutError, uploadSession } from "@/lib/api";
+import { PASSPORT_DEPARTURE, requestPassport, type PassportData } from "@/lib/passport";
 
 type UploadState = "uploading" | "done" | "failed";
 
@@ -18,7 +19,9 @@ function describeUploadError(err: unknown): string {
 }
 
 // 09 YOUR MCM MOMENT
-// 촬영 직후, 찍은 사진을 크게 보여주는 화면. "다음"으로 08 QR 로 넘어갑니다.
+// 촬영 직후, 찍은 사진을 크게 보여주고 그 옆에 MCM TRAVEL PASSPORT 를 발급합니다.
+// 여권의 "여행 유형 / 추천 이유" 두 줄은 서버 라우트(/api/passport)를 통해 실시간
+// AI 로 생성되고, 실패하면 폴백 문구로 자동 대체됩니다. "다음"으로 08 QR 로 넘어갑니다.
 export default function StepMoment() {
   const { state, dispatch } = usePortalFlow();
 
@@ -65,34 +68,61 @@ export default function StepMoment() {
   }, []);
 
   const choice = findProductChoice(state.productId, state.colorwayKey);
+  const world = state.selectedWorldId ? WORLDS[state.selectedWorldId] : null;
   const pointColor = choice?.colorway.hex ?? "#0a0a0a";
 
+  // MCM TRAVEL PASSPORT 발급 — 마운트 시 한 번, AI 멘트를 요청합니다.
+  const [passport, setPassport] = useState<PassportData | null>(null);
+  const passportRef = useRef(false);
+  useEffect(() => {
+    if (passportRef.current) return;
+    if (!choice || !world || !state.answers.mood || !state.answers.journey) return;
+    passportRef.current = true;
+
+    void requestPassport({
+      colorwayKey: choice.colorway.key,
+      colorwayLabel: choice.colorway.label,
+      productName: choice.product.name,
+      worldDisplayName: world.displayName,
+      worldName: world.name,
+      mood: state.answers.mood,
+      journey: state.answers.journey,
+    }).then(setPassport);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
-    <div className="flex h-full min-h-screen flex-col items-center justify-center bg-paper px-8 py-12 text-center">
+    <div className="flex h-full min-h-screen flex-col items-center justify-center bg-paper px-8 py-10 text-center">
       <p className="text-xs tracking-widest2 text-ink/45">{COPY.momentEyebrow}</p>
 
-      <div
-        className="mt-5 overflow-hidden rounded-2xl border bg-white shadow-[0_24px_70px_-30px_rgba(0,0,0,0.55)]"
-        style={{ borderColor: pointColor }}
-      >
-        {state.capturedImage ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={state.capturedImage}
-            alt="촬영된 순간"
-            className="block max-h-[64vh] w-auto max-w-[80vw] object-contain"
-          />
-        ) : (
-          <div className="flex h-[46vh] w-[70vw] max-w-3xl items-center justify-center text-sm text-ink/30">
-            사진을 불러오는 중...
-          </div>
-        )}
+      <div className="mt-6 flex flex-col items-center gap-8 lg:flex-row lg:items-stretch lg:gap-10">
+        {/* 촬영 사진 */}
+        <div
+          className="overflow-hidden rounded-2xl border bg-white shadow-[0_24px_70px_-30px_rgba(0,0,0,0.55)]"
+          style={{ borderColor: pointColor }}
+        >
+          {state.capturedImage ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={state.capturedImage}
+              alt="촬영된 순간"
+              className="block max-h-[62vh] w-auto max-w-[46vw] object-contain"
+            />
+          ) : (
+            <div className="flex h-[46vh] w-[46vw] max-w-2xl items-center justify-center text-sm text-ink/30">
+              사진을 불러오는 중...
+            </div>
+          )}
+        </div>
+
+        {/* MCM TRAVEL PASSPORT */}
+        <Passport passport={passport} pointColor={pointColor} />
       </div>
 
       <p className="mt-6 text-sm text-ink/60">{COPY.momentCaption}</p>
 
       {/* 업로드 상태 — 실패해도 "다음"은 막지 않고 재시도만 제공합니다. */}
-      <div className="mt-4 flex min-h-[2.25rem] items-center gap-3 text-xs">
+      <div className="mt-3 flex min-h-[2rem] items-center gap-3 text-xs">
         {uploadState === "uploading" && (
           <span className="text-ink/40">{COPY.uploadInProgress}</span>
         )}
@@ -113,12 +143,131 @@ export default function StepMoment() {
       <button
         type="button"
         onClick={() => dispatch({ type: "SHOW_QR" })}
-        className="mt-4 flex items-center gap-4 rounded-full bg-ink px-12 py-3.5 text-sm tracking-widest text-white transition-colors hover:bg-ink/85"
+        className="mt-3 flex items-center gap-4 rounded-full bg-ink px-12 py-3.5 text-sm tracking-widest text-white transition-colors hover:bg-ink/85"
       >
         {COPY.momentNext}
         <ArrowRight />
       </button>
     </div>
+  );
+}
+
+// -----------------------------------------------------------------------------
+// 여권 카드 — 빈티지 여권/스탬프 톤. 골드(accent) 포인트 + 세리프 헤더.
+// AI 멘트가 오기 전에는 "발급 중..." 상태를 보여줍니다.
+// -----------------------------------------------------------------------------
+function Passport({
+  passport,
+  pointColor,
+}: {
+  passport: PassportData | null;
+  pointColor: string;
+}) {
+  return (
+    <div className="flex w-[380px] max-w-[86vw] flex-col rounded-2xl border border-accent/40 bg-[#fbf9f4] p-7 text-left shadow-[0_24px_70px_-34px_rgba(0,0,0,0.5)]">
+      {/* 헤더 */}
+      <div className="flex items-center justify-between border-b border-accent/30 pb-4">
+        <div>
+          <p className="font-serif text-[11px] tracking-widest2 text-accent">MCM</p>
+          <h3 className="mt-1 font-serif text-lg tracking-wide text-ink">
+            {COPY.passportTitle}
+          </h3>
+        </div>
+        <Emblem />
+      </div>
+
+      {/* 출발지 → 도착지 */}
+      <div className="mt-5 flex items-end justify-between">
+        <Field label={COPY.passportDeparture} value={PASSPORT_DEPARTURE} />
+        <PlaneArrow />
+        <Field label={COPY.passportArrival} value={passport?.arrival ?? "—"} align="right" />
+      </div>
+
+      {/* 여행 유형 / 동행 제품 */}
+      <div className="mt-6 space-y-4">
+        <Row label={COPY.passportType} value={passport?.travelType ?? null} />
+        <Row label={COPY.passportCompanion} value={passport?.companion ?? null} />
+      </div>
+
+      {/* 추천 이유 — AI CONCIERGE */}
+      <div
+        className="mt-6 rounded-xl border border-dashed bg-accent/5 px-4 py-4"
+        style={{ borderColor: `${pointColor}55` }}
+      >
+        <p className="text-[10px] tracking-widest2 text-accent">
+          ✦ {COPY.passportConcierge}
+        </p>
+        <p className="mt-2 min-h-[1.5em] font-serif text-base leading-snug text-ink">
+          {passport ? (
+            <span className="animate-fadeIn">{passport.reason}</span>
+          ) : (
+            <span className="text-ink/35">{COPY.passportLoading}</span>
+          )}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function Field({
+  label,
+  value,
+  align = "left",
+}: {
+  label: string;
+  value: string;
+  align?: "left" | "right";
+}) {
+  return (
+    <div className={align === "right" ? "text-right" : "text-left"}>
+      <p className="text-[10px] tracking-widest2 text-ink/40">{label}</p>
+      <p className="mt-1 font-serif text-2xl tracking-wide text-ink">{value}</p>
+    </div>
+  );
+}
+
+function Row({ label, value }: { label: string; value: string | null }) {
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <p className="text-[10px] tracking-widest2 text-ink/40">{label}</p>
+      {value ? (
+        <p className="animate-fadeIn text-right text-sm font-medium tracking-wide text-ink">
+          {value}
+        </p>
+      ) : (
+        <span className="h-3 w-24 animate-pulse rounded bg-ink/10" />
+      )}
+    </div>
+  );
+}
+
+function Emblem() {
+  return (
+    <svg width="34" height="34" viewBox="0 0 34 34" fill="none" aria-hidden>
+      <circle cx="17" cy="17" r="15.5" stroke="#b08d57" strokeWidth="1" />
+      <circle cx="17" cy="17" r="11" stroke="#b08d57" strokeWidth="0.5" opacity="0.6" />
+      <path
+        d="M17 7l2.6 6.3 6.8.5-5.2 4.4 1.7 6.6L17 27.7l-5.7-2.4 1.7-6.6-5.2-4.4 6.8-.5z"
+        fill="#b08d57"
+        opacity="0.85"
+      />
+    </svg>
+  );
+}
+
+function PlaneArrow() {
+  return (
+    <svg
+      width="46"
+      height="16"
+      viewBox="0 0 46 16"
+      fill="none"
+      aria-hidden
+      className="mb-1 text-accent"
+    >
+      <path d="M0 8h34" stroke="currentColor" strokeWidth="0.75" strokeDasharray="2 2" />
+      <path d="M30 3c3 2 7 4 12 5-5 1-9 3-12 5l1.5-5z" fill="currentColor" opacity="0.9" />
+    </svg>
   );
 }
 

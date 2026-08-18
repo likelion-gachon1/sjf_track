@@ -65,6 +65,16 @@ export const COPY = {
   momentCaption: "당신의 MCM 순간이 완성되었습니다.",
   momentNext: "다음",
 
+  // 09 MCM TRAVEL PASSPORT (촬영 사진 옆 여권 — 여행 유형/추천 이유는 AI 실시간 생성)
+  passportTitle: "MCM TRAVEL PASSPORT",
+  passportDeparture: "출발지",
+  passportArrival: "도착지",
+  passportType: "여행 유형",
+  passportCompanion: "동행 제품",
+  passportReasonLabel: "추천 이유",
+  passportLoading: "여권 발급 중...",
+  passportConcierge: "AI CONCIERGE",
+
   // 업로드 상태 (09 화면) — 실패해도 흐름은 막지 않고 재시도만 제공합니다.
   uploadInProgress: "사진을 저장하는 중...",
   uploadRetry: "다시 시도",
@@ -350,9 +360,9 @@ function axisScore<T extends string>(value: T, priority: T[]): number {
   return 0;
 }
 
-/** 블랙은 어두운 World(textOn: light), 핑크는 밝은 World(textOn: dark)와 어울립니다. */
+/** 베이지는 어두운 World(textOn: light), 핑크는 밝은 World(textOn: dark)와 어울립니다. */
 function colorwayScore(colorway: ColorwayKey, world: WorldDef): number {
-  if (colorway === "black" && world.textOn === "light") return COLORWAY_MATCH;
+  if (colorway === "beige" && world.textOn === "light") return COLORWAY_MATCH;
   if (colorway === "pink" && world.textOn === "dark") return COLORWAY_MATCH;
   return 0;
 }
@@ -476,26 +486,51 @@ export function debugMappingTable(): MappingTableRow[] {
 //    World 의 gradient(목업)가 그대로 쓰입니다.
 //
 //    무드 키 ↔ 03 MOOD 화면 라벨 (파일명 표기)
-//      light = 설렘  (새로운 순간을 기대하는)  → romance
-//      calm  = 여유  (천천히 즐기고 싶은)      → healing
-//      bold  = 자신감(나답게 뽐내고 싶은)      → 배경 미준비
+//      light = 설렘  (새로운 순간을 기대하는)  → sul
+//      calm  = 여유  (천천히 즐기고 싶은)      → calm
+//      bold  = 자신감(나답게 뽐내고 싶은)      → confidence
 //
 //    여행 스타일 키 ↔ 04 화면 라벨 (파일명 표기)
 //      explore = 도시 곳곳 둘러보기 → city
-//      culture = 쇼핑·문화 즐기기   → shopping
-//      relax   = 여유롭게 쉬기      → rest
+//      culture = 쇼핑·문화 즐기기   → shop
+//      relax   = 여유롭게 쉬기      → relax
 //
-//    배경을 추가할 때는 public/worlds/ 에 파일을 넣고 아래에 한 줄만 등록하면 됩니다.
+//    18조합 전량이 아래 COMBO_BACKGROUNDS 에 등록돼 있습니다 (핑크·베이지 각 9개).
+//    각 조합은 버전 1·2 두 장이 있으며 기본은 1을 씁니다. 파일은
+//    public/worlds/{색}/ 아래에 있습니다.
 // -----------------------------------------------------------------------------
 
-/** `${컬러웨이}|${무드}|${여행}` → public 아래 배경 이미지 경로. */
+/**
+ * `${컬러웨이}|${무드}|${여행}` → public 아래 배경 이미지 경로.
+ *
+ * 파일명 규약: /worlds/{색}/{색}_{무드}_{여정}{버전}.png
+ *   무드 : light→sul(설렘) · calm→calm(여유) · bold→confidence(자신감)
+ *   여정 : explore→city · culture→shop · relax→relax
+ *   버전 : 조합마다 1·2 두 장이 있고, 기본은 1을 씁니다(2로 바꾸려면 끝 숫자만 변경).
+ *
+ * 18조합(핑크·베이지 × 무드 3 × 여정 3) 전량 등록. 파일이 없으면 gradient 로 폴백합니다.
+ */
 export const COMBO_BACKGROUNDS: Record<string, string> = {
-  "pink|light|explore": "/worlds/pink_romance_city.png",
-  "pink|light|culture": "/worlds/pink_romance_shopping.png",
-  "pink|light|relax": "/worlds/pink_romance_rest.png",
-  "pink|calm|explore": "/worlds/pink_healing_city.png",
-  "pink|calm|culture": "/worlds/pink_healing_shopping.png",
-  "pink|calm|relax": "/worlds/pink_healing_rest.png",
+  // PINK
+  "pink|light|explore": "/worlds/pink/pink_sul_city1.png",
+  "pink|light|culture": "/worlds/pink/pink_sul_shop1.png",
+  "pink|light|relax": "/worlds/pink/pink_sul_relax1.png",
+  "pink|calm|explore": "/worlds/pink/pink_calm_city1.png",
+  "pink|calm|culture": "/worlds/pink/pink_calm_shop1.png",
+  "pink|calm|relax": "/worlds/pink/pink_calm_relax1.png",
+  "pink|bold|explore": "/worlds/pink/pink_confidence_city1.png",
+  "pink|bold|culture": "/worlds/pink/pink_confidence_shop1.png",
+  "pink|bold|relax": "/worlds/pink/pink_confidence_relax1.png",
+  // BEIGE
+  "beige|light|explore": "/worlds/beige/beige_sul_city1.png",
+  "beige|light|culture": "/worlds/beige/beige_sul_shop1.png",
+  "beige|light|relax": "/worlds/beige/beige_sul_relax1.png",
+  "beige|calm|explore": "/worlds/beige/beige_calm_city1.png",
+  "beige|calm|culture": "/worlds/beige/beige_calm_shop1.png",
+  "beige|calm|relax": "/worlds/beige/beige_calm_relax1.png",
+  "beige|bold|explore": "/worlds/beige/beige_confidence_city1.png",
+  "beige|bold|culture": "/worlds/beige/beige_confidence_shop1.png",
+  "beige|bold|relax": "/worlds/beige/beige_confidence_relax1.png",
 };
 
 /** 조합에 맞는 실사 배경 경로. 아직 준비되지 않은 조합이면 undefined. */
