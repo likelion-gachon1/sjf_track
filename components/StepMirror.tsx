@@ -1,6 +1,6 @@
 "use client";
 
-import { COPY, WORLDS } from "@/config/portal.config";
+import { COPY, WORLDS, applyComboBackground } from "@/config/portal.config";
 import { track } from "@/lib/analytics";
 import { usePortalFlow } from "@/lib/FlowContext";
 import { usePortalRuntime } from "@/lib/PortalRuntime";
@@ -13,7 +13,10 @@ export default function StepMirror() {
   const { state, dispatch } = usePortalFlow();
   const runtime = usePortalRuntime();
 
-  const world = state.selectedWorldId ? WORLDS[state.selectedWorldId] : null;
+  // 05에서 프리로드한 것과 같은 배경이어야 하므로 동일하게 조합 배경을 적용합니다.
+  const world = state.selectedWorldId
+    ? applyComboBackground(WORLDS[state.selectedWorldId], state.colorwayKey, state.answers)
+    : null;
   if (!world) return null;
 
   const handleCapture = (dataUrl: string) => {

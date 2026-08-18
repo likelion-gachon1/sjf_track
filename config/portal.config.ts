@@ -9,6 +9,7 @@
 
 import { PRODUCTS } from "@/config/products.config";
 import type {
+  Answers,
   ColorwayKey,
   JourneyKey,
   MattingMode,
@@ -64,14 +65,23 @@ export const COPY = {
   momentCaption: "당신의 MCM 순간이 완성되었습니다.",
   momentNext: "다음",
 
+  // 업로드 상태 (09 화면) — 실패해도 흐름은 막지 않고 재시도만 제공합니다.
+  uploadInProgress: "사진을 저장하는 중...",
+  uploadRetry: "다시 시도",
+  uploadTimeout: "서버 응답이 늦어요. 연결을 확인해 주세요.",
+  uploadOffline: "네트워크에 연결되지 않았어요.",
+  uploadTooLarge: "사진 용량이 너무 커요.",
+  uploadServerError: "저장에 실패했어요. 잠시 후 다시 시도해 주세요.",
+
   // QR HANDOFF
   handoffHeading: "체험이 완료되었습니다.",
   handoffCaption: "촬영한 사진을 저장하거나\n관심 제품을 저장하려면\nQR을 스캔해 주세요.",
   downloadButton: "사진 저장하기",
-  handoffNext: "다음",
   restartButton: "처음으로",
+  /** `{expiry}` 자리에 만료 시각이 들어갑니다. */
+  handoffExpiry: "이 QR은 {expiry}까지 유효합니다.",
 
-  // TODAY'S MCM / SAVED ITEMS (마지막 화면)
+  // TODAY'S MCM / SAVED ITEMS — 부스가 아니라 QR 로 넘어간 폰에서 쓰입니다.
   todaysHeading: "TODAY'S MCM",
   savedHeading: "SAVED ITEMS",
   saveInterestButton: "관심 제품 저장하기",
@@ -99,10 +109,12 @@ export const COPY = {
 export const MOOD_QUESTION: QuestionDef<MoodKey> = {
   id: "mood",
   prompt: COPY.moodHeading,
+  // ⚠️ key 는 바꾸지 마세요 — COMBO_BACKGROUNDS 의 배경 매핑이 이 값을 씁니다.
+  //    (light = 설렘, calm = 여유, bold = 자신감)
   options: [
-    { key: "light", label: "가볍고\n생기 있게" },
-    { key: "calm", label: "차분하고\n분위기 있게" },
-    { key: "bold", label: "강렬하고\n화려하게" },
+    { key: "light", label: "설렘", description: "새로운 순간을 기대하는" },
+    { key: "calm", label: "여유", description: "천천히 즐기고 싶은" },
+    { key: "bold", label: "자신감", description: "나답게 뽐내고 싶은" },
   ],
 };
 
@@ -126,8 +138,10 @@ export const QUESTIONS = [MOOD_QUESTION, JOURNEY_QUESTION];
 //    sceneType   : 여행 스타일이 반영되는 내부 축 — 화면에 노출하지 않습니다
 //    gradient    : CSS 배경용 문자열
 //    gradientStops: 07 캔버스 합성용 (gradient 와 같은 값을 유지해 주세요)
-//    backgroundImage: 실사 배경이 준비되면 "/worlds/{id}.webp" 를 넣으세요.
-//                     비어 있으면 gradient 로 폴백합니다.
+//    backgroundImage: World 공통 실사 배경. 비어 있으면 gradient 로 폴백합니다.
+//                     ⚠️ 실사 배경은 현재 World 단위가 아니라 **조합 단위**로 붙습니다.
+//                     아래 COMBO_BACKGROUNDS 를 쓰세요 (없는 파일 경로를 여기 적으면
+//                     gradient 폴백이 막혀 배경이 빈 화면으로 나옵니다).
 //    bgm         : "/bgm/{id}.mp3" — 파일이 없어도 앱은 무음으로 정상 동작합니다
 //
 //    ── 시간대 팔레트 규약 ──────────────────────────────────────────────────
@@ -161,7 +175,6 @@ export const WORLDS: Record<WorldId, WorldDef> = {
       { offset: 0.72, color: "#f4efe6" },
       { offset: 1, color: "#e6d9c8" },
     ],
-    backgroundImage: "/worlds/paris_dawn.webp",
     bgm: "/bgm/paris_dawn.mp3",
     textOn: "dark",
   },
@@ -214,7 +227,6 @@ export const WORLDS: Record<WorldId, WorldDef> = {
       { offset: 0.74, color: "#33262a" },
       { offset: 1, color: "#7d2a23" },
     ],
-    backgroundImage: "/worlds/newyork_attitude.webp",
     bgm: "/bgm/newyork_attitude.mp3",
     textOn: "light",
   },
@@ -251,7 +263,6 @@ export const WORLDS: Record<WorldId, WorldDef> = {
       { offset: 0.68, color: "#e79f61" },
       { offset: 1, color: "#c67a50" },
     ],
-    backgroundImage: "/worlds/milano_terrace.webp",
     bgm: "/bgm/milano_terrace.mp3",
     textOn: "dark",
   },
@@ -272,7 +283,6 @@ export const WORLDS: Record<WorldId, WorldDef> = {
       { offset: 0.76, color: "#55206f" },
       { offset: 1, color: "#9d2a68" },
     ],
-    backgroundImage: "/worlds/seoul_neon.webp",
     bgm: "/bgm/seoul_neon.mp3",
     textOn: "light",
   },
@@ -402,7 +412,7 @@ function flatLabel(label: string): string {
  * ⚠️ 지금은 화면에 렌더링하지 않습니다(노출 위치 회의 후 결정). 로그/검증용으로만
  * 사용하세요. 한국어 조사(이/가, 을/를)가 라벨에 따라 틀어지므로 조사 없는
  * 나열형 템플릿을 씁니다.
- * 예) "차분하고 분위기 있게 · 쇼핑·문화 즐기기 — NEW YORK, 해 질 무렵"
+ * 예) "여유 · 쇼핑·문화 즐기기 — NEW YORK, 해 질 무렵"
  */
 export function buildWorldReason(
   mood: MoodKey,
@@ -456,6 +466,61 @@ export function debugMappingTable(): MappingTableRow[] {
   }
 
   return rows;
+}
+
+// -----------------------------------------------------------------------------
+// 조합 전용 실사 배경 — (컬러웨이 × 무드 × 여행 스타일) → 배경 이미지
+//
+//    World 자체는 위 4번 규칙(속성 매칭)으로 고르지만, **실사 배경은 촬영본이 준비된
+//    조합 단위**로 붙습니다. 여기 등록된 조합만 실사 배경이 나가고, 나머지 조합은
+//    World 의 gradient(목업)가 그대로 쓰입니다.
+//
+//    무드 키 ↔ 03 MOOD 화면 라벨 (파일명 표기)
+//      light = 설렘  (새로운 순간을 기대하는)  → romance
+//      calm  = 여유  (천천히 즐기고 싶은)      → healing
+//      bold  = 자신감(나답게 뽐내고 싶은)      → 배경 미준비
+//
+//    여행 스타일 키 ↔ 04 화면 라벨 (파일명 표기)
+//      explore = 도시 곳곳 둘러보기 → city
+//      culture = 쇼핑·문화 즐기기   → shopping
+//      relax   = 여유롭게 쉬기      → rest
+//
+//    배경을 추가할 때는 public/worlds/ 에 파일을 넣고 아래에 한 줄만 등록하면 됩니다.
+// -----------------------------------------------------------------------------
+
+/** `${컬러웨이}|${무드}|${여행}` → public 아래 배경 이미지 경로. */
+export const COMBO_BACKGROUNDS: Record<string, string> = {
+  "pink|light|explore": "/worlds/pink_romance_city.png",
+  "pink|light|culture": "/worlds/pink_romance_shopping.png",
+  "pink|light|relax": "/worlds/pink_romance_rest.png",
+  "pink|calm|explore": "/worlds/pink_healing_city.png",
+  "pink|calm|culture": "/worlds/pink_healing_shopping.png",
+  "pink|calm|relax": "/worlds/pink_healing_rest.png",
+};
+
+/** 조합에 맞는 실사 배경 경로. 아직 준비되지 않은 조합이면 undefined. */
+export function comboBackgroundImage(
+  colorway: ColorwayKey | null,
+  answers: Answers
+): string | undefined {
+  const { mood, journey } = answers;
+  if (!colorway || !mood || !journey) return undefined;
+  return COMBO_BACKGROUNDS[`${colorway}|${mood}|${journey}`];
+}
+
+/**
+ * 화면에 실제로 쓸 World.
+ * 조합 전용 배경이 있으면 `backgroundImage` 를 그것으로 덮어쓰고, 없으면 World 를
+ * 그대로 돌려줍니다(= gradient 목업 유지). 06 리빌 화면과 07 합성 캔버스가 모두
+ * `world.backgroundImage` 한 곳만 보므로, 이 함수만 거치면 양쪽에 함께 반영됩니다.
+ */
+export function applyComboBackground(
+  world: WorldDef,
+  colorway: ColorwayKey | null,
+  answers: Answers
+): WorldDef {
+  const image = comboBackgroundImage(colorway, answers);
+  return image ? { ...world, backgroundImage: image } : world;
 }
 
 // -----------------------------------------------------------------------------
@@ -555,11 +620,61 @@ export const RIPPLE_CONFIG = {
   stepMs: 420,
   finalMs: 700,
   color: "#faf8f5",
+
+  /**
+   * 선택지에 마우스를 올렸을 때 **버튼 정중앙에서** 퍼지는 물결.
+   * 전환용 ripple 과 달리 버튼 안에서만 퍼지고 클릭을 막지 않습니다.
+   * hoverRepeatMs 간격으로 계속 번져 물결처럼 보이게 합니다 (0 이면 1회만).
+   *
+   * ⚠️ 커서를 따라 퍼지게 하면 마우스를 움직일 때마다 시작점이 튀어 글자가 읽기
+   *    힘들어집니다. 중앙 고정 + 느린 속도가 카피 가독성에 유리합니다.
+   */
+  hoverMs: 1800,
+  hoverRepeatMs: 1100,
+  hoverColor: "#b08d57",
+  hoverOpacity: 0.26,
+
+  /**
+   * OS 의 "동작 줄이기(prefers-reduced-motion)" 설정을 따를지.
+   *
+   * ⚠️ true 로 두면 부스 PC 의 Windows "애니메이션 효과"가 꺼져 있을 때 **리플·물결·
+   *    궤도 회전이 전부 사라집니다**(설정 › 접근성 › 시각 효과 › 애니메이션 효과).
+   *    이 설정은 부스를 세팅한 사람의 취향이지 방문객의 것이 아니고, 연출 자체가
+   *    이 체험의 핵심이라 기본값을 false(항상 재생)로 둡니다.
+   *    일반 웹으로 배포한다면 true 로 되돌리세요.
+   */
+  respectReducedMotion: false,
 } as const;
 
 // -----------------------------------------------------------------------------
 // 9. BGM 설정 — 음원은 public/bgm/{worldId}.mp3 규약으로 넣어주세요.
 //    파일이 없으면 콘솔 경고만 남기고 무음으로 동작합니다.
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+// 10. 촬영 결과 업로드 설정
+//
+//    부스 WiFi 가 불안정할 수 있으므로 요청에 타임아웃을 걸고, 백엔드의 10MB 제한
+//    (multipart max-file-size)에 걸려 413 이 나지 않도록 미리 줄여서 보냅니다.
+// -----------------------------------------------------------------------------
+export const UPLOAD_CONFIG = {
+  /** 응답이 이 시간 안에 안 오면 실패로 간주합니다(무한 대기 방지). */
+  timeoutMs: 10000,
+  /** 헬스체크는 프리로드를 붙잡지 않도록 더 짧게. */
+  healthTimeoutMs: 3000,
+  /** 백엔드 multipart 제한과 같은 값을 유지하세요. */
+  maxBytes: 10 * 1024 * 1024,
+  /**
+   * 용량 초과 시 위에서부터 차례로 다시 인코딩합니다.
+   * 품질을 먼저 낮추고, 그래도 안 되면 해상도를 줄입니다.
+   */
+  shrinkAttempts: [
+    { scale: 1, quality: 0.8 },
+    { scale: 1, quality: 0.65 },
+    { scale: 0.75, quality: 0.7 },
+    { scale: 0.6, quality: 0.6 },
+  ],
+} as const;
+
 // -----------------------------------------------------------------------------
 export const BGM_CONFIG = {
   volume: 0.5,

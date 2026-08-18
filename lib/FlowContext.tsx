@@ -25,9 +25,10 @@ interface FlowState {
   capturedImage: string | null;
   /** 백엔드 업로드 후 받은 공유 URL (QR 에 사용). 실패 시 null. */
   shareUrl: string | null;
+  /** 세션 만료 시각(ISO). 08 화면의 QR 유효기간 안내에 씁니다. 실패 시 null. */
+  expiresAt: string | null;
   /** 07 음소거 토글 상태. */
   bgmMuted: boolean;
-  productInterestSaved: boolean;
   savedMoments: SavedMoment[];
 }
 
@@ -42,8 +43,8 @@ const initialState: FlowState = {
   capturedAt: null,
   capturedImage: null,
   shareUrl: null,
+  expiresAt: null,
   bgmMuted: false,
-  productInterestSaved: false,
   savedMoments: [],
 };
 
@@ -57,11 +58,9 @@ type FlowAction =
   | { type: "ENTER_PORTAL" }
   | { type: "CAPTURE"; dataUrl: string }
   | { type: "SHOW_QR" }
-  | { type: "SHOW_SHOP" }
   | { type: "TOGGLE_BGM_MUTE" }
   | { type: "CHANGE_WORLD"; worldId: WorldId }
-  | { type: "SAVE_PRODUCT_INTEREST" }
-  | { type: "SET_SHARE_URL"; url: string }
+  | { type: "SET_SESSION_SHARE"; url: string; expiresAt: string }
   | { type: "RESET" };
 
 // 화면 전환 책임은 리듀서가 갖습니다. 각 전환은 "예상한 step 에서만" 일어나므로
@@ -118,7 +117,6 @@ function flowReducer(state: FlowState, action: FlowAction): FlowState {
         id: `${capturedAt}-${Math.random().toString(36).slice(2, 8)}`,
         worldId: state.selectedWorldId,
         savedAt: capturedAt,
-        productInterest: state.productInterestSaved,
         imageDataUrl: action.dataUrl,
       };
       return {
@@ -135,11 +133,6 @@ function flowReducer(state: FlowState, action: FlowAction): FlowState {
       if (state.step !== "moment") return state;
       return { ...state, step: "handoff" };
 
-    case "SHOW_SHOP":
-      // 08 QR → TODAY'S MCM / SAVED ITEMS
-      if (state.step !== "handoff") return state;
-      return { ...state, step: "shop" };
-
     case "TOGGLE_BGM_MUTE":
       return { ...state, bgmMuted: !state.bgmMuted };
 
@@ -147,11 +140,8 @@ function flowReducer(state: FlowState, action: FlowAction): FlowState {
       // 미러 화면의 "다른 세계도 보기" 안건이 확정되면 되살립니다. 현재 사용처 없음.
       return { ...state, selectedWorldId: action.worldId };
 
-    case "SAVE_PRODUCT_INTEREST":
-      return { ...state, productInterestSaved: true };
-
-    case "SET_SHARE_URL":
-      return { ...state, shareUrl: action.url };
+    case "SET_SESSION_SHARE":
+      return { ...state, shareUrl: action.url, expiresAt: action.expiresAt };
 
     case "RESET":
       // 갤러리(savedMoments)는 부스 운영 중 계속 쌓이도록 유지하고,
@@ -191,10 +181,41 @@ export function usePortalFlow() {
  * 세션 ID 발급. crypto.randomUUID 는 secure context(https/localhost) 전용이라
  * 부스 PC가 http 로 접속하는 경우를 위해 폴백을 둡니다.
  * ⚠️ 리듀서가 아니라 START 클릭 핸들러에서 호출하세요 (리듀서를 순수하게 유지).
+ * ⚠️ 백엔드가 sessionId 를 UUID 로 검증하므로 폴백도 반드시 UUID 형식이어야 합니다
+ *    (형식이 다르면 업로드가 400 으로 조용히 실패합니다).
  */
 export function createSessionId(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
   }
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  return createUuidV4();
+}
+
+/**
+ * RFC 4122 v4 UUID 를 직접 조립합니다.
+ * `crypto.getRandomValues` 는 randomUUID 와 달리 http 에서도 쓸 수 있어 우선 사용하고,
+ * 그마저 없으면 Math.random 으로 내려갑니다(형식은 동일하게 유지).
+ */
+function createUuidV4(): string {
+  const bytes = new Uint8Array(16);
+  if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {
+    crypto.getRandomValues(bytes);
+  } else {
+    for (let i = 0; i < bytes.length; i += 1) {
+      bytes[i] = Math.floor(Math.random() * 256);
+    }
+  }
+
+  // v4 규격: 7번째 바이트 상위 4비트 = 0100, 9번째 바이트 상위 2비트 = 10
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+
+  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+  return [
+    hex.slice(0, 8),
+    hex.slice(8, 12),
+    hex.slice(12, 16),
+    hex.slice(16, 20),
+    hex.slice(20),
+  ].join("-");
 }

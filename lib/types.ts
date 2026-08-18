@@ -40,8 +40,9 @@ export type StepId =
   | "reveal" // 06 WORLD REVEAL
   | "experience" // 07 EXPERIENCE
   | "moment" // 09 YOUR MCM MOMENT (촬영 사진 확인)
-  | "handoff" // 08 QR HANDOFF
-  | "shop"; // TODAY'S MCM + SAVED ITEMS
+  | "handoff"; // 08 QR HANDOFF — 부스의 마지막 화면
+// 관심 제품 화면(TODAY'S MCM / SAVED ITEMS)은 부스가 아니라 QR 로 넘어간 폰에서
+// 열립니다 — app/m/[sessionId]/shop/page.tsx
 
 /**
  * 인물을 배경에서 분리하는 방식.
@@ -134,6 +135,8 @@ export interface WorldDef {
 export interface QuestionOption<K extends string> {
   key: K;
   label: string;
+  /** 라벨 아래 작게 붙는 보조 설명. 없으면 라벨만 렌더링합니다. */
+  description?: string;
 }
 
 export interface QuestionDef<K extends string> {
@@ -146,7 +149,7 @@ export interface SavedMoment {
   id: string;
   worldId: WorldId;
   savedAt: number;
-  productInterest: boolean;
+  // 관심 제품 저장 여부는 부스가 알 수 없습니다 — 저장은 QR 로 넘어간 폰에서 일어납니다.
   /** 촬영 결과 JPEG dataURL (서버 업로드 없이 메모리에만 보관). */
   imageDataUrl: string;
 }

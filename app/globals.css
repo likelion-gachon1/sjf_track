@@ -13,6 +13,22 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+/* 선택지 호버 물결 — 커서 지점에서 퍼지며 사라집니다.
+   transform/opacity 만 애니메이션하므로 컴포지터에서 처리됩니다. */
+@keyframes hover-ripple {
+  from {
+    transform: translate(-50%, -50%) scale(0);
+    opacity: var(--hover-ripple-opacity, 0.26);
+  }
+  to {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0;
+  }
+}
+
+/* 재생 여부는 RIPPLE_CONFIG.respectReducedMotion 으로 JS 에서 판정합니다.
+   여기에 @media (prefers-reduced-motion) 로 숨기면 그 설정을 덮어쓸 수 없게 됩니다. */
+
 /* Booth screens are large landscape displays; keep a comfortable min width. */
 #portal-root {
   min-width: 1024px;

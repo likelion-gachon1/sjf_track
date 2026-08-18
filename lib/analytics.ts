@@ -24,6 +24,8 @@ export type PortalEvent =
   // 아래 2종은 모바일(/m/{sessionId}) 화면에서 호출할 예정 — 지금은 타입만 정의
   | { name: "product_interest_saved"; productId: string; colorwayKey: ColorwayKey }
   | { name: "product_detail_viewed"; productId: string }
+  // 05 프리로드의 헬스체크 실패 — 촬영 전에 서버 다운을 알아차리기 위한 신호입니다.
+  | { name: "backend_unreachable" }
   | { name: "session_reset" };
 
 export type PortalEventRecord = PortalEvent & {
