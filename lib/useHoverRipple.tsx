@@ -31,7 +31,17 @@ export interface HoverRippleBinding {
   layer: React.ReactNode;
 }
 
-export function useHoverRipple(disabled = false): HoverRippleBinding {
+export interface HoverRippleOptions {
+  /** 물결 색. 생략하면 RIPPLE_CONFIG.hoverColor(브랜드 골드). */
+  color?: string;
+  /** 물결 시작 불투명도. 생략하면 RIPPLE_CONFIG.hoverOpacity. */
+  opacity?: number;
+}
+
+export function useHoverRipple(
+  disabled = false,
+  { color, opacity }: HoverRippleOptions = {}
+): HoverRippleBinding {
   const [ripples, setRipples] = useState<HoverRipple[]>([]);
 
   const idRef = useRef(0);
@@ -133,9 +143,13 @@ export function useHoverRipple(disabled = false): HoverRippleBinding {
             top: "50%",
             width: r.size,
             height: r.size,
-            background: RIPPLE_CONFIG.hoverColor,
-            animation: `hover-ripple ${RIPPLE_CONFIG.hoverMs}ms ease-out forwards`,
-            ["--hover-ripple-opacity" as string]: String(RIPPLE_CONFIG.hoverOpacity),
+            background: color ?? RIPPLE_CONFIG.hoverColor,
+            // 퍼지는 건 ease-out(초반에 쭉), 흐려지는 건 ease-in(후반에 몰아서).
+            // globals.css 의 keyframe 주석 참고 — 하나로 묶으면 색이 연해집니다.
+            animation:
+              `hover-ripple-scale ${RIPPLE_CONFIG.hoverMs}ms ease-out forwards, ` +
+              `hover-ripple-fade ${RIPPLE_CONFIG.hoverMs}ms ${RIPPLE_CONFIG.hoverFadeEasing} forwards`,
+            ["--hover-ripple-opacity" as string]: String(opacity ?? RIPPLE_CONFIG.hoverOpacity),
             willChange: "transform, opacity",
           }}
         />

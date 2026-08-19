@@ -42,9 +42,9 @@ export default function StepIntro() {
         MCM PORTAL
       </h1>
 
-      <p className="mt-6 text-xl text-ink/70">Where will MCM take you?</p>
+      <p className="mt-6 text-xl text-ink/90">Where will MCM take you?</p>
 
-      <label className="mt-24 flex cursor-pointer items-center gap-3 text-sm text-ink/70">
+      <label className="mt-24 flex cursor-pointer items-center gap-3 text-sm text-ink/90">
         <input
           type="checkbox"
           checked={state.consent}
@@ -62,7 +62,7 @@ export default function StepIntro() {
           "mt-6 rounded-full px-12 py-3.5 text-sm tracking-widest backdrop-blur-sm transition-colors",
           state.consent
             ? "bg-white/75 text-ink hover:bg-white/90"
-            : "cursor-not-allowed bg-white/40 text-ink/40",
+            : "cursor-not-allowed bg-white/40 text-ink/70",
         ].join(" ")}
       >
         여행 시작하기
@@ -78,7 +78,7 @@ function Emblem() {
 
   if (broken) {
     return (
-      <svg width="60" height="60" viewBox="0 0 52 52" fill="none" aria-hidden>
+      <svg viewBox="0 0 52 52" fill="none" aria-hidden className="h-[3.75rem] w-[3.75rem]">
         <circle cx="26" cy="26" r="24" stroke="#0a0a0a" strokeWidth="1.2" />
         <path
           d="M26 12l4 9 9 1-6.5 6 1.7 9-8.2-4.6L17.5 47l1.7-9L12.7 22l9-1z"

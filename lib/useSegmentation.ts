@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { MATTING_CONFIG } from "@/config/portal.config";
 import { drawCompositeFrame, drawPersonLayer } from "@/lib/composite";
 import { usePortalRuntime } from "@/lib/PortalRuntime";
-import type { WorldDef } from "@/lib/types";
+import type { MattingStatus, WorldDef } from "@/lib/types";
 import type { Results, SelfieSegmentation } from "@mediapipe/selfie_segmentation";
 
-export type SegmentationStatus = "idle" | "loading" | "running" | "error";
+/** @deprecated 이름만 남긴 별칭 — 새 코드는 `MattingStatus` 를 쓰세요. */
+export type SegmentationStatus = MattingStatus;
 
 interface UseSegmentationParams {
   videoRef: React.RefObject<HTMLVideoElement>;
@@ -30,8 +30,9 @@ interface UseSegmentationParams {
  * 닫는 책임은 releaseAll() 한 곳에 있습니다.
  *
  * ⚠️ 이 방식은 프레임마다 마스크를 새로 추정하므로 인물이 움직이면 경계가 흔들리고
- *    그 틈으로 실제 배경이 살짝 비칩니다. 부스 제작 시 그린 스크린 크로마키
- *    (`useChromaKey`)로 교체할 예정입니다 — README "다음 단계: 그린 스크린 크로마키".
+ *    그 틈으로 실제 배경이 살짝 비칩니다. 기본 방식은 이제 그린 스크린 크로마키
+ *    (`useChromaKey`)이고, 이 훅은 **그린 스크린을 쓸 수 없을 때의 폴백**입니다
+ *    (천이 없는 개발 PC, WebGL 초기화 실패). README "그린 스크린 크로마키" 참고.
  */
 export function useSegmentation({
   videoRef,
@@ -54,14 +55,6 @@ export function useSegmentation({
     if (!enabled) {
       setStatus("idle");
       return;
-    }
-
-    if (MATTING_CONFIG.mode !== "segmentation") {
-      // 미구현 모드가 설정돼도 부스 화면이 죽지 않도록 세그멘테이션으로 계속합니다.
-      console.warn(
-        `[portal] matting mode "${MATTING_CONFIG.mode}" 는 아직 구현되지 않았습니다 —` +
-          " 세그멘테이션으로 계속합니다 (README: 다음 단계: 그린 스크린 크로마키)."
-      );
     }
 
     const video = videoRef.current;

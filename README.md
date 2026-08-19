@@ -1,8 +1,9 @@
-# MCM PORTAL — Step 3 프로토타입
+# MCM PORTAL
 
-와이어프레임 확정안대로 플로우를 **8화면**으로 재구성하고, 미러 화면에 **MediaPipe
-실시간 세그멘테이션 합성**을 붙였습니다. "인물·제품은 그대로, 주변 공간만 바뀌는"
-경험이 이번 단계의 핵심입니다.
+부스 화면 **9개 + QR로 이어지는 모바일 2개**로 구성된 체험입니다. "인물·제품은 그대로,
+주변 공간만 바뀌는" 것이 핵심이라, 촬영 화면에서 **그린 스크린 크로마키**로 인물을 분리해
+World 배경 위에 실시간 합성합니다(그린 스크린을 못 쓰면 MediaPipe 세그멘테이션으로 폴백).
+AI는 배경을 만들지 않고, **의상을 보고 무드를 판정**하거나 **여권 카피를 쓰는** 데 씁니다.
 
 ## 실행
 
@@ -72,9 +73,67 @@ DevTools Network 탭에서 `jsdelivr`/`cdn` 요청이 **0건**이면 정상입�
 ⚠️ `tailwind.config.ts` 를 고친 뒤에는 **dev 서버를 재시작**해야 반영됩니다
 (Next 가 컴파일된 설정을 캐시해서, 새로고침만으로는 예전 폰트가 계속 나옵니다).
 
-### BGM 음원 (선택)
+### 부스 화면 크기 (확대 배율)
 
-`public/bgm/{worldId}.mp3` 규약으로 넣어주세요 (예: `public/bgm/newyork_attitude.mp3`).
+부스는 큰 가로 디스플레이를 멀찍이 서서 보기 때문에 기본 16px 로는 글자와 버튼이
+작습니다. `app/globals.css` 의 **한 줄**이 전체 배율을 정합니다.
+
+```css
+html:has(#portal-root)      { font-size: 22px; }   /* 16px = 확대 없음, 22px = +37.5% (현재) */
+html:has(#portal-root) body { font-weight: 600; }  /* 본문 굵기 — 400 으로 되돌리면 원래대로 */
+```
+
+Tailwind 의 글자 크기·간격·너비가 전부 `rem` 이라 **이 값 하나로 글자와 컴포넌트가
+같은 비율로 함께 커집니다.** 더 키우거나 줄이려면 이 숫자만 바꾸세요.
+
+⚠️ **1080p 기준으로 22px 가 거의 상한입니다.** 가장 빠듯한 03 TRAVEL STYLE 화면이
+세로 여유 60px 밖에 남지 않습니다(카드 352×528). 더 키우려면 그 화면의 카드 높이
+(`h-96`)를 함께 줄여야 합니다.
+
+### 글자 굵기 — 500 을 쓰지 마세요
+
+SUIT 는 **400 / 700 / 800 세 파일만** 있습니다(`public/font`). CSS 폰트 매칭 규칙상
+굵기 요청값이 어디로 떨어지는지가 갈립니다.
+
+| 요청 | 실제 렌더 | 비고 |
+|---|---|---|
+| 400 · 500 | Regular | **500 을 써도 굵어지지 않습니다** (아래쪽을 먼저 찾음) |
+| 600 · 700 | Bold | 본문 기본값이 600 인 이유 |
+| 800 | ExtraBold | 제목(`font-extrabold`) — 본문이 굵어져도 위계 유지 |
+
+그래서 `font-medium`(500)은 부스 화면에서 쓰지 마세요 — 주변 본문보다 **더 얇아집니다.**
+강조가 필요하면 `font-semibold`(600) 이상을 쓰세요.
+
+### 글자 색
+
+본문은 `text-ink/60` ~ `text-ink/90` 범위를 씁니다. 부스는 조명이 밝고 멀리서 보기 때문에
+50% 이하로 내리면 흐려서 안 읽힙니다. 새 문구를 넣을 때도 이 범위를 지켜주세요.
+
+| 왜 이렇게 했나 | 이유 |
+|---|---|
+| `html` 에 거는 이유 | `rem` 은 언제나 `html` 기준입니다. `#portal-root` 에 `font-size` 를 줘도 Tailwind 클래스는 꿈쩍하지 않습니다 |
+| `:has(#portal-root)` 로 한정하는 이유 | 폰 화면(`/m/...`)은 피그마 시안대로 `w-[402px]` 같은 **px 고정값과 rem 이 섞여** 있어, 함께 키우면 레이아웃이 깨집니다 |
+| 폴백 | `:has()` 를 모르는 브라우저는 규칙을 통째로 무시해 16px 로 남습니다 (= 확대 전 크기, 안전) |
+
+⚠️ **부스 컴포넌트에는 px 고정값을 새로 넣지 마세요.** 넣으면 그 부분만 확대에서
+빠져 비율이 어긋납니다. 크기는 Tailwind 기본 클래스(`h-16`, `p-7` …)나 rem 임의값
+(`w-[23.75rem]`)으로 쓰고, **인라인 SVG 도 `width="60"` 대신 `className="h-[3.75rem] w-[3.75rem]"`**
+로 지정하세요(px 속성은 rem 을 따라가지 않습니다). `viewBox` 와 내부 도형 좌표는 그대로 둡니다.
+
+`#portal-root` 의 `min-width` 도 같은 이유로 `64rem` 입니다 — px 로 고정하면 글자만
+커지고 가로 여유는 그대로라 선택 카드들이 서로 밀립니다.
+
+### BGM 음원
+
+**World 별이 아니라 체험 전체가 한 곡을 공유합니다.** 06 리빌에서 재생을 시작해
+08 QR 에서 멈추고, 07 화면의 토글로 음소거할 수 있습니다.
+
+경로는 `BGM_CONFIG.src` 한 곳에서만 정합니다 (현재 `/bgm/Golden%20Hour%20Lounge.mp3`).
+곡을 바꾸려면 `public/bgm/` 에 파일을 넣고 이 값만 고치세요.
+
+> ⚠️ 파일명에 **공백이 있으면 `%20` 으로 인코딩**해서 적어야 합니다. 공백 없는
+> 이름으로 저장하면 신경 쓸 필요가 없습니다.
+
 **파일이 없어도 앱은 정상 동작합니다** — 콘솔 경고만 남고 무음으로 진행되며 음소거
 토글도 그대로 눌립니다.
 
@@ -162,13 +221,14 @@ QR 로 이어지는 모바일 화면은 아래 두 개입니다.
 - `COPY` — 화면에 보이는 모든 문구 (`\n` 은 줄바꿈으로 렌더링됩니다)
 - `JOURNEY_QUESTION` — 03 화면의 질문과 선택지
 - `MOOD_QUESTION` — 무드 3종의 **라벨 표** (버튼이 아닙니다 — 무드는 04에서 AI가 판정)
-- `JOURNEY_CARD_MOOD` — 03 카드 미리보기 컷에 쓸 대표 무드
+- `journeyCardImage()` — 03 카드 미리보기 사진 경로 (`public/place/{컬러웨이}/`, 무드 축 없음)
 - `MOOD_ANALYSIS_CONFIG` — 04 무드 분석 파라미터 (캡처 크기·샘플 영역·폴백 임계값)
+- `OPENING_STAGES` — 05 로딩 화면의 단계별 문구 + 지속 시간 (이 구간 길이의 유일한 노브)
 - `WORLDS` — World 목록 (표기명, 내부 축, gradient, 배경 이미지, BGM 경로)
-- `ACTIVE_WORLD_IDS` — **이번 체험에서 실제로 쓰는 World 목록 (임시값, 회의 확정 대기)**
+- `ACTIVE_WORLD_IDS` — **이번 체험에서 실제로 쓰는 World 목록 (4종으로 확정)**
 - `MOOD_TO_TIME` / `JOURNEY_TO_SCENE` — 선택값 → 내부 축 우선순위
-- `CAMERA_CONFIG` / `SEGMENTATION_CONFIG` / `RIPPLE_CONFIG` / `BGM_CONFIG` — 파라미터
-- `WORLD_ALTERNATES` — "다른 세계도 보기" 안건용 (현재 화면에서는 미사용)
+- `MATTING_CONFIG` — 인물 분리 방식 + 크로마키 파라미터 (**부스에서 실측 필요**)
+- `CAMERA_CONFIG` / `SEGMENTATION_CONFIG` / `RIPPLE_CONFIG` / `BGM_CONFIG` / `UPLOAD_CONFIG` — 파라미터
 
 제품 데이터는 [`config/products.config.ts`](config/products.config.ts) 에 있습니다
 (`PRODUCTS`). `colorway.hex` 는 02 카드 외에 06 CTA 테두리, 09 MOMENT 사진 테두리,
@@ -177,9 +237,9 @@ QR 로 이어지는 모바일 화면은 아래 두 개입니다.
 ### 제품 사진 넣기
 
 ```
-public/products/{productId}-{colorwayKey}.png
-  → public/products/stark_backpack_visetos-pink.png
-  → public/products/stark_backpack_visetos-black.png
+public/products/
+  → Ottomar_Weeke_der_in_Visetos-pink.webp
+  → Ottomar_Weeke_der_in_Visetos-beige.webp
 ```
 
 흰 배경 정면 컷(정사각형에 가까운 비율)을 넣어주세요. 카드가 밝은 중립 배경
@@ -209,11 +269,17 @@ World 는 위 매칭 점수로 고르지만, **실사 배경은 (컬러웨이 ×
 직접 매핑**됩니다. `config/portal.config.ts` 의 `comboBackgroundImage()` 가 파일명 토큰으로
 경로를 조립하고, 파일이 없으면 World 의 gradient 목업으로 폴백합니다.
 
-| 무드 키 | 04 화면 라벨 | 파일명 표기 |
-|---|---|---|
-| `light` | 설렘 (새로운 순간을 기대하는) | `sul` |
-| `calm` | 여유 (천천히 즐기고 싶은) | `calm` |
-| `bold` | 자신감 (나답게 뽐내고 싶은) | `confidence` |
+| 무드 키 | 04 화면 라벨 | 한국어 뉘앙스 | 파일명 표기 |
+|---|---|---|---|
+| `light` | **EXCITEMENT** | 새로운 순간을 기대하는 설렘 | `sul` |
+| `calm` | **RELAXATION** | 천천히 즐기고 싶은 여유 | `calm` |
+| `bold` | **CONFIDENCE** | 나답게 뽐내고 싶은 자신감 | `confidence` |
+
+⚠️ 이 영문 라벨은 **화면에 뜨지 않습니다.** 무드는 04에서 AI가 판정하고 결과를
+노출하지 않으므로, `moodLabel()` 은 `buildWorldReason()` 이 콘솔 디버그 로그를 만들 때와
+`/calibrate` 에서만 쓰입니다. 한국어 뉘앙스(`MOOD_QUESTION.options[].description`)도
+화면 미사용입니다. 파일명 토큰은 `MOOD_IMG_TOKEN` 이 따로 들고 있어 라벨을 바꿔도
+배경 경로는 영향받지 않습니다.
 
 | 여행 키 | 03 화면 라벨 | 파일명 표기 |
 |---|---|---|
@@ -221,8 +287,9 @@ World 는 위 매칭 점수로 고르지만, **실사 배경은 (컬러웨이 ×
 | `culture` | 쇼핑·문화 즐기기 | `shop` |
 | `relax` | 여유롭게 쉬기 | `relax` |
 
-**핑크·베이지 × 무드 3 × 여정 3 = 18조합** 전량에 배경이 있고, 조합마다 두 컷
-(**variant 1 = 03 선택 카드용, variant 2 = 07 촬영 배경용**)이 있어 총 36장입니다.
+**핑크·베이지 × 무드 3 × 여정 3 = 18조합** 전량에 배경이 있습니다(variant 2, 07 촬영 배경).
+예전에 03 선택 카드가 쓰던 variant 1 컷은 03이 `public/place/` 전용 세트로 옮겨가면서
+더 이상 어디서도 참조되지 않아 삭제했습니다.
 
 ```
 /worlds/{색}/{색}_{무드토큰}_{여정토큰}{버전}.png
@@ -237,8 +304,26 @@ World 는 위 매칭 점수로 고르지만, **실사 배경은 (컬러웨이 ×
 
 ### 시간대 팔레트 규약
 
-실사 배경이 없는 동안에도 시간대가 눈에 보이도록, 활성 World의 gradient는 위가 하늘,
-아래가 지면인 **수직(180deg)** 방향으로 잡혀 있습니다.
+18조합 실사 배경이 전부 등록된 지금은 **화면에 거의 보이지 않습니다.** 06 REVEAL·05
+OPENING은 World의 gradient가 아니라 고정 배경(`/ui/bg1.jpg`, `/ui/load.jpg`)을 쓰고,
+07 촬영 합성(`lib/composite.ts`)도 `world.backgroundImage`(실사 조합 사진)를 우선 그리며
+**그 파일이 없거나 로드에 실패할 때만** 이 gradient로 폴백합니다. 정상 동작 중에는 안
+그려진다고 보면 됩니다.
+
+그래도 남겨두는 이유는 두 가지입니다.
+
+1. **폴백 안전망** — 실사 파일이 깨지거나 경로가 틀려도 화면이 완전히 비지 않고, 최소한
+   시간대 느낌은 나는 색으로 대체됩니다.
+2. **`textOn` 의 근거** — `resolveWorld` 의 컬러웨이 보정(`colorwayScore`)이 쓰는
+   `world.textOn`(베이지=어두운 World, 핑크=밝은 World)을 이 팔레트 설계에서 이어받았습니다.
+
+> ⚠️ **실제로 보여줄 사진은 이 축과 무관하게 정해집니다.** `comboBackgroundImage()` 는
+> `colorway × mood × journey` 로만 경로를 만들고 `resolveWorld` 가 고른 `worldId` 를 쓰지
+> 않습니다. `timeOfDay`/`sceneType` 매칭(`resolveWorld`)은 06에 표시할 **도시 이름**만
+> 결정할 뿐, 07에서 손님이 보는 사진 자체는 무드·여정만으로 정해집니다.
+
+가독성을 위해 팔레트 값 자체는 남겨둡니다 — 위가 하늘, 아래가 지면인 **수직(180deg)**
+gradient이고, 값은 아래와 같습니다.
 
 | timeOfDay | 팔레트 | 평균 명도 | textOn |
 |---|---|---|---|
@@ -284,49 +369,135 @@ console.table(window.__portalMappingTable())
   둡니다. 촬영 결과 해상도도 이 값을 따릅니다.
 - 가장자리가 딱딱하면 `SEGMENTATION_CONFIG.featherPx` 를 올려보세요 (0 = 비활성).
 
-## 다음 단계: 그린 스크린 크로마키
+## 그린 스크린 크로마키 (현재 기본 방식)
 
-### 왜 바꾸는가
+### 왜 바꿨는가
 
-현재 방식(MediaPipe SelfieSegmentation)은 **인물이 움직일 때 경계가 미세하게 흔들리고
+세그멘테이션(MediaPipe SelfieSegmentation)은 **인물이 움직일 때 경계가 미세하게 흔들리고
 그 틈으로 실제 배경이 살짝 비칩니다.** 프레임마다 마스크를 새로 추정하기 때문에 생기는
 구조적 한계라 `featherPx` 로는 완화만 되고 원인이 남습니다.
 
-부스를 제작할 때 뒤에 **그린 스크린**을 세우고 색상 키잉으로 바꾸면, 색이라는 고정 기준으로
-자르기 때문에 매 프레임 같은 판정이 나와 경계가 흔들리지 않습니다. 가방 스트랩처럼 가는
-부분이 잘려나가는 문제(인물 전용 모델의 한계)도 같이 해결됩니다.
+그린 스크린 + 색상 키잉은 **색이라는 고정 기준**으로 자르기 때문에 매 프레임 같은 판정이
+나와 경계가 흔들리지 않습니다. 가방 스트랩처럼 가는 부분이 잘려나가는 문제(인물 전용
+모델의 한계)도 함께 해결됩니다.
 
-### 지금 준비된 것
+### ⚠️ 실측 없이는 의미가 없습니다
 
-```ts
-// config/portal.config.ts
-MATTING_CONFIG = {
-  mode: "segmentation",          // ← "chromakey" 로 전환할 스위치
-  chromaKey: { keyColor, similarity, smoothness, spill },
-}
-```
+`MATTING_CONFIG.chromaKey` 의 기본값은 **자리표시자**입니다. 부스 조명을 잡은 뒤
+`/calibrate` 에서 실측해 config 에 반영하기 전까지는 세그멘테이션보다 나을 게 없습니다.
+아래 "부스 세팅 순서"를 그대로 따라가세요.
 
-`mode` 를 `"chromakey"` 로 바꿔도 **아직은 세그멘테이션으로 동작하고 콘솔 경고만 남습니다**
-(부스에서 화면이 죽는 것이 최악이므로 의도적인 폴백). 파라미터는 OBS 크로마키와 같은
-의미이므로 부스에서 조명을 잡은 뒤 실측값으로 채우면 됩니다.
+### 구성
 
-### 교체 범위 — 인물 레이어 한 겹뿐
-
-`drawPersonLayer()` 가 "인물 레이어를 만드는" 유일한 지점이고, 그 뒤의 배경 합성·좌우 반전·
-촬영은 인물 레이어가 **어떻게** 만들어졌는지 모릅니다. 덕분에 아래 세 곳만 바뀝니다.
-
-| 파일 | 할 일 |
+| 파일 | 역할 |
 |---|---|
-| `lib/composite.ts` | `drawChromaKeyPersonLayer(personCtx, videoFrame, w, h)` 추가 — `keyColor` 와의 색 거리로 알파를 계산. `drawCompositeFrame` / `captureFrame` 은 **그대로 재사용** |
-| `lib/useChromaKey.ts` (신규) | `useSegmentation` 자리를 대신하는 프레임 루프. MediaPipe 가 필요 없으므로 `<video>` 를 매 프레임 바로 처리 |
-| `components/MirrorStage.tsx` | `MATTING_CONFIG.mode` 로 두 훅 중 하나를 선택 |
+| `lib/chromaKey.ts` | WebGL 단일 패스 셰이더 — CbCr 거리 → 알파, 스필 제거, cover 크롭, 아이드로퍼 |
+| `lib/useChromaKey.ts` | 프레임 루프. `requestVideoFrameCallback` 이 있으면 **카메라가 새 프레임을 낼 때만** 그립니다 |
+| `lib/matting.ts` | 모드 결정(config · `?matting=` · 세션 토글) · 보정값 보관 · config 코드 조각 생성 |
+| `components/ChromaKeyTuner.tsx` | 보정 패널 (`/calibrate` 와 07 `?tune=1` 이 공유) |
+| `app/calibrate/page.tsx` | 보정 전용 화면 |
+| `components/MirrorStage.tsx` | 두 방식 중 선택 + WebGL 실패 시 자동 폴백 |
 
-`PortalRuntime.getSegmenter()` 프리로드와 05 화면의 MediaPipe 워밍업은 크로마키에서는
-불필요해집니다(로딩이 그만큼 빨라집니다). `acquireCamera()` 프리로드는 그대로 유지하세요.
+**배경 합성·좌우 반전·촬영(`drawCompositeFrame` / `captureFrame`)은 두 방식이 그대로
+공유합니다** — 인물 레이어를 만드는 한 겹만 갈아끼웠습니다. 덕분에 "화면 = 저장된 사진"
+보장도 그대로 유지됩니다.
 
-구현은 픽셀 루프(`getImageData`/`putImageData`)로 시작해도 되지만, 1600px 폭에서 60fps를
-노리면 **WebGL 셰이더**가 안전합니다. 색 거리는 RGB보다 **YCbCr 의 CbCr 평면**에서 재는 편이
-조명 편차에 강합니다(OBS 방식과 동일).
+색 거리는 RGB 가 아니라 **YCbCr 의 CbCr 평면**에서 잽니다(OBS 와 동일). RGB 거리는 밝기
+차이까지 함께 재기 때문에, 스크린에 그림자가 지면 같은 원단인데도 거리가 벌어져 그 부분이
+안 지워집니다.
+
+크로마키 모드에서는 05 프리로드가 **MediaPipe 를 건너뜁니다**(로딩이 그만큼 빨라집니다).
+`acquireCamera()` 프리로드는 그대로입니다.
+
+### 부스 세팅 순서
+
+1. **조명을 먼저 잡습니다.** 소프트웨어로 고칠 수 있는 건 조명 다음입니다 — 스크린에
+   그림자나 핫스팟이 있으면 어떤 값을 넣어도 그 부분이 남습니다.
+2. 브라우저에서 **`/calibrate`** 를 엽니다 (부스 플로우를 거치지 않는 전용 화면).
+3. **"화면에서 색 찍기"** 를 켜고, 인물이 설 자리 뒤 스크린 가운데를 클릭합니다.
+4. **"알파 보기"** 를 켭니다. 배경이 마젠타로 바뀌어 남은 초록 테두리와 인물에 뚫린
+   구멍이 바로 보입니다.
+   - `similarity` 를 올려 초록이 사라지는 지점, 내려 인물이 파이기 시작하는 지점을 찾아
+     **그 사이**로 둡니다.
+   - `smoothness` 로 가장자리를 정리합니다.
+   - **몸 윤곽에 초록 테두리가 보이면 `spill` 을 올립니다** (아래 참고).
+5. 팔을 크게 흔들어 **경계가 흔들리지 않는지**, 가방을 들어 **스트랩이 살아있는지**
+   확인합니다. (세그멘테이션 대비 핵심 개선점이라 여기서 검수하세요)
+6. **"설정 코드 복사"** → `config/portal.config.ts` 의 `MATTING_CONFIG.chromaKey` 블록에
+   덮어쓰고 저장합니다.
+
+> ⚠️ **6번을 빼먹으면 값이 부스에 반영되지 않습니다.** 보정 화면의 값은 브라우저
+> localStorage 에만 있고, 그마저 **보정 모드(`/calibrate`·`?tune=1`)에서만 읽습니다.**
+> 이건 실수가 아니라 의도한 설계입니다 — 누군가 조정하고 간 값이 다음날 조용히 살아나
+> "왜 오늘만 다르지"가 되는 상황을 막기 위해, 부스 실행은 언제나 config 상수만 봅니다.
+
+### 스위치
+
+| URL | 효과 |
+|---|---|
+| (없음) | `MATTING_CONFIG.mode` 를 따릅니다 — 현재 `"chromakey"` |
+| `?matting=segmentation` | **그린 스크린이 없는 개발 PC 용.** 예전 세그멘테이션 방식으로 |
+| `?matting=chromakey` | config 가 segmentation 이어도 크로마키로 |
+| `?tune=1` | 07 촬영 화면에 보정 패널을 띄웁니다 (부스 운영 중에는 나오지 않습니다) |
+
+**실행 중 전환 — 07 촬영 화면에서 `Shift+M`.** 그린 스크린을 세운 날과 아닌 날을 오갈 때
+URL 을 다시 칠 필요 없이 즉시 뒤집습니다. 바뀐 모드 이름이 1.8초간 화면 위에 뜹니다.
+`/calibrate` 상단의 **"부스 화면 열기"** 링크도 원하는 모드로 07 을 띄웁니다.
+
+우선순위는 **`Shift+M` 토글 > `?matting=` > `MATTING_CONFIG.mode`** 입니다. 토글이 URL 을
+이겨야 `?matting=segmentation` 으로 들어온 뒤에도 되돌릴 수 있기 때문입니다.
+
+> ⚠️ **토글은 세션 한정입니다 — 새로고침하면 `MATTING_CONFIG.mode` 로 돌아갑니다.**
+> 보정값과 같은 이유로 저장하지 않습니다(위 6번 경고 참고). 상시 운영 모드를 바꾸려면
+> `config/portal.config.ts` 의 `MATTING_CONFIG.mode` 를 고쳐야 합니다.
+
+`/calibrate` 는 프로덕션 빌드에서도 열립니다(부스 PC 가 `npm run build && start` 로 돌 수
+있으므로). 플로우 어디에서도 링크하지 않는 비공개 경로입니다.
+
+### 몸 윤곽의 초록 테두리 — `spill` 이 유일한 해결책
+
+가장 자주 나오는 증상입니다. **매트(알파) 문제가 아닙니다.** 스크린에서 튄 초록빛이
+인물의 몸에 실제로 얹힌 것이라, 경계를 아무리 깎아도(`edgeShrink`) 그 픽셀은 알파 1 이라
+그대로 남습니다. 실측으로도 `edgeShrink` 를 0 → 0.45 로 올리는 동안 초록기가 **전혀**
+줄지 않았고, `spill` 만 값에 비례해 줄어 1.0 에서 0 이 됐습니다.
+
+| spill | 남은 초록기 |
+|---|---|
+| 0.25 (초기값) | 20 |
+| 0.4 | 16 |
+| 0.6 | 11 |
+| 0.8 | 6 |
+| **1.0** | **0** |
+
+그래서 기본값이 `1.0` 입니다. `min(g, (r+b)/2)` 가드 덕분에 초록기가 없는 색은 건드리지
+않습니다 — 실측 변화량이 피부 0~2, 핑크 0, 베이지 6, 흰색·검정·데님·빨강 0 입니다.
+
+⚠️ 예외는 **카키·올리브 계열 의상**(약 30 변화)으로, 탁해 보이면 `spill` 을 0.6 정도로
+낮추세요. 초록 의상은 애초에 배경으로 지워지므로 안내문의 "초록색 의상 주의"가 그대로
+유효합니다.
+
+물리적으로 줄이는 쪽이 언제나 더 낫습니다 — **인물과 스크린 사이를 1m 이상** 띄우면
+바운스 자체가 줄어 `spill` 을 낮게 써도 됩니다.
+
+### 폴백 — 화면은 절대 죽지 않습니다
+
+WebGL 컨텍스트를 얻지 못하면 콘솔에 경고를 남기고 **세그멘테이션으로 자동 전환**합니다.
+그래서 `public/mediapipe/` 에셋과 `useSegmentation` 은 그대로 남겨두었습니다. 지우지 마세요.
+
+### 04 무드 분석의 그린 가드
+
+**그린 스크린을 세우면서 새로 생기는 문제입니다.** 로컬 폴백은
+`MOOD_ANALYSIS_CONFIG.sampleRegion`(프레임 가운데 아래)의 평균색을 보는데, 손님이 조금만
+옆으로 서거나 뒤로 물러나면 이 박스에 스크린이 들어옵니다. 초록은 순색도가 1.0 에 가깝고
+밝기도 높아 **의상과 무관하게 전부 "설렘"으로 쏠립니다.**
+
+그래서 크로마키 모드에서는 평균을 낼 때 키 컬러에 가까운 픽셀을 건너뜁니다
+(`lib/moodAnalysis.ts` 의 `greenGuard`). 남은 표본이 20% 미만이면 가드를 풀고 전체 평균으로
+되돌아가므로 **판정이 실패하는 경우는 없습니다.** AI 라우트 쪽에도 "배경색은 무시하라"는
+지시를 한 줄 넣어두었습니다.
+
+부스에서는 `window.__portalEvents` 의 `mood_analyzed` 결과가 밝은 옷·어두운 옷·베이지 옷에
+대해 실제로 갈리는지 3회 이상 확인하세요. 전부 "설렘"이면 가드가 안 먹은 것입니다.
 
 ### 부스 쪽 요구사항 (촬영 환경)
 
@@ -334,7 +505,8 @@ MATTING_CONFIG = {
 - 스크린 전용 조명 2개로 **균일하게** 깔 것 — 그림자가 지면 그 부분이 배경으로 안 지워집니다.
 - 인물과 스크린 사이 **1m 이상** 거리 확보 → 초록빛 반사(스필)가 줄어 `spill` 값을 낮게 쓸 수 있습니다.
 - 안내문에 **초록색 의상 주의**를 넣어주세요 (옷이 함께 지워집니다).
-- 조명을 잡은 뒤 실제 화면을 캡처해 `keyColor` 를 실측값으로 교체하세요.
+- 조명을 잡은 뒤 **반드시 `/calibrate` 에서 `keyColor` 를 실측**하고 config 에 반영하세요
+  (위 "부스 세팅 순서").
 
 ## 세션 ID · 서버 오류 처리
 
@@ -398,8 +570,10 @@ UUID 로 검증하므로 **폴백도 UUID 형식이어야 합니다.**
 
 `lib/analytics.ts` 의 `track()` 이 단계별로 호출됩니다. 아직 전송은 하지 않고
 `console.info("[portal] ...")` + `window.__portalEvents` 버퍼에만 남깁니다.
-와이어프레임 KPI 4종 중 QR 노출·사진 저장·관심 제품 저장(SHOP 화면)까지는 호출 지점이
-있고, **제품 상세 확인(`product_detail_viewed`)만 타입 정의뿐**입니다.
+와이어프레임 KPI 4종 중 QR 노출(`qr_displayed`)·사진 저장(`photo_download_clicked`)만
+호출 지점이 있고, **모바일 SHOP 화면의 관심 제품 저장(`product_interest_saved`)과
+제품 상세 확인(`product_detail_viewed`)은 타입 정의뿐**입니다. 두 버튼 모두 지금은
+MCM 스토어로 나가는 외부 링크라 `app/m/**` 에서는 `track()` 을 호출하지 않습니다.
 
 ## 다음 단계 / 알려진 한계
 
@@ -408,368 +582,39 @@ UUID 로 검증하므로 **폴백도 UUID 형식이어야 합니다.**
 - **업로드에 끝내 실패하면 QR 이 무효합니다.** 재시도해도 안 되면 앱은 임시 QR 로 계속
   진행되는데, 그 QR 은 서버에 없는 세션을 가리켜 폰에서 "사진을 찾을 수 없어요"(404)가
   뜹니다. 사진 자체는 08 화면의 "사진 저장하기"로 로컬 저장이 가능합니다.
-- **인물 경계가 움직임에 따라 살짝 흔들려 배경이 비칩니다.** 프레임마다 마스크를 새로
-  추정하는 방식의 구조적 한계이며, 부스 제작 시 **그린 스크린 크로마키로 교체 예정**
-  입니다(위 "다음 단계: 그린 스크린 크로마키"). 그때까지 촬영은 어깨에 멘 구도 +
-  움직임을 줄인 포즈가 가장 안정적입니다.
-- SelfieSegmentation은 **인물 전용 모델**이라 손에 든 가방·가는 스트랩은 배경으로
-  잘릴 수 있습니다. 이 역시 크로마키 전환으로 함께 해결됩니다.
-- **실사 배경은 18조합 중 6조합만 준비됐습니다** (PINK × 설렘·여유 × 여행 3종).
-  나머지 12조합(자신감 전체 + BLACK 전체)은 gradient 목업으로 나갑니다 — 시간대는
-  팔레트로 구분되지만 **도시 고유의 장소감**은 실사 배경이 들어와야 살아납니다.
-- BGM 음원 미확보 — 재생 경로만 검증 가능합니다.
+- **크로마키 파라미터가 아직 실측값이 아닙니다.** `MATTING_CONFIG.chromaKey` 는
+  자리표시자라, 부스 조명 아래에서 `/calibrate` 로 잡아 config 에 반영해야 제 성능이
+  납니다(위 "그린 스크린 크로마키 → 부스 세팅 순서"). **이번 단계에서 남은 가장 큰 일입니다.**
+- 세그멘테이션 폴백에는 기존 한계가 그대로 남아 있습니다 — 경계 흔들림과, 인물 전용
+  모델이라 손에 든 가방·가는 스트랩이 잘리는 문제. 그린 스크린을 못 쓰는 상황에서만
+  이 경로로 내려가며, 그때는 어깨에 멘 구도 + 움직임을 줄인 포즈가 가장 안정적입니다.
 
 ---
 
-## 변경 이력 — Step 3 이후 추가 작업
+## AI 기능 — 무드 분석 · 여권 카피
 
-프로토타입(피그마 확정안)에 맞춰 아래 작업을 추가했습니다. 요약하면 **(1) 촬영 이후
-플로우를 3화면 늘리고, (2) 누끼(인물 분리) 품질을 소프트웨어로 개선하고, (3) World·UI
-실사 배경을 AI로 생성하는 파이프라인을 붙이고, (4) 시작 화면을 목업 톤으로 리디자인**했습니다.
+AI는 이미지를 **생성하지 않습니다.** 배경은 이미 찍어둔 실사 18장(`public/worlds/`)이고,
+AI는 **보고 판정하거나 문장을 쓰는** 두 곳에만 쓰입니다. 두 라우트 모두 실패해도 폴백이
+있어 화면이 멈추지 않습니다.
 
-### 1. 촬영 이후 플로우 확장 (촬영 → 사진 확인 → QR → 관심 제품)
-
-기존에는 `07 EXPERIENCE → QR HANDOFF` 로 바로 끝났습니다. 목업대로 촬영한 사진을
-크게 확인하고 관심 제품까지 이어지도록 **세 화면**을 추가/재구성했습니다.
-
-```
-07 EXPERIENCE(촬영)
-  → 09 YOUR MCM MOMENT (촬영 사진 크게 보기)      components/StepMoment.tsx  [신규]
-  → 08 QR HANDOFF     (QR + 사진 저장)            components/StepHandoff.tsx [재정리]
-  → SHOP              (TODAY'S MCM + SAVED ITEMS)  components/StepShop.tsx    [신규]
-  → 처음으로(RESET)
-```
-
-- **StepMoment (09)** — `state.capturedImage` 를 화면 가득 보여주고 "다음"으로 넘어갑니다.
-- **StepHandoff (08)** — 사진은 앞 화면에서 이미 크게 봤으므로 QR 중심으로 정리하고,
-  "다음" 버튼으로 SHOP 으로 넘어갑니다. (기존 QR 생성·`stopBgm`·`qr_displayed` 로직 유지)
-- **StepShop** — 왼쪽 **TODAY'S MCM**(선택 제품 + 가격 + `관심 제품 저장하기 ♥`),
-  오른쪽 **SAVED ITEMS**(관심 목록). "처음으로" 로 다음 고객을 위해 초기화합니다.
-
-상태 전환은 기존 규약(리듀서가 예상 단계에서만 전환)을 그대로 따릅니다.
-`lib/FlowContext.tsx` 에 액션 `SHOW_QR`(moment→handoff), `SHOW_SHOP`(handoff→shop) 을
-추가했고, `CAPTURE` 의 목적지를 `handoff` → `moment` 로 바꿨습니다.
-
-> ⚠️ **SAVED ITEMS 는 현재 샘플 데이터**입니다(`config/products.config.ts` 의 `SAVED_ITEMS`).
-> 실제 위시리스트 연동 전까지 고정 노출되며, 제품 사진이 없으면 색 플레이스홀더로 폴백합니다.
-> TODAY'S MCM 가격도 `PRODUCTS[].price` 예시값(₩1,290,000)이니 실제 값으로 교체하세요.
-
-### 2. 누끼(세그멘테이션) 가장자리 개선
-
-"경계가 흔들리고 그 틈으로 배경이 비치는" 문제를 소프트웨어로 완화했습니다(근본 해결책인
-그린 스크린 크로마키 계획은 그대로 유효합니다). `lib/composite.ts` 의 `drawPersonLayer` 가
-마스크를 깔 때 **blur(부드럽게) + brightness(경계 안쪽으로 깎기) + contrast(반투명 띠 제거)**
-를 조합하도록 바꿨고, 값은 `config/portal.config.ts` 의 `SEGMENTATION_CONFIG` 에서 조절합니다.
-
-```ts
-// SEGMENTATION_CONFIG 에 추가된 노브
-maskErode: 0.85,   // 경계를 안쪽으로 깎는 정도(밝기 배율). 1=끔. 낮출수록 뒷배경 테두리 제거 (권장 0.8~0.95)
-maskContrast: 400, // 반투명 경계 띠를 사람/배경으로 미는 세기(%). 100=끔. 높을수록 배경 비침 제거 (권장 300~500)
-```
-
-배경이 여전히 비치면 `maskContrast` 를, 사람 윤곽이 너무 얇아지면 `maskErode` 를 조정하세요.
-움직임 떨림이 크면 `SEGMENTATION_CONFIG.modelSelection` 을 `1`(landscape) → `0`(general) 로
-바꿔 비교해볼 수 있습니다.
-
-### 3. ~~World·UI 실사 배경 AI 생성 파이프라인~~ (폐기)
-
-> 이미지 생성 스크립트(`scripts/generate-images.mjs`, `generate-worlds.mjs`)는 **삭제되었습니다.**
-> 제공된 OpenAI 키가 Free Tier 라 이미지 생성(`gpt-image` / DALL·E) 호출을 쓸 수 없고,
-> 실제 배경은 촬영본 36장(`public/worlds/`)으로 대체됐기 때문입니다.
-> AI는 이미지를 만드는 대신 **보고 판정하는** 용도로 옮겨갔습니다 — 아래 "AI 무드 분석" 참고.
-
-### 4. 01 START 화면 리디자인
-
-`components/StepIntro.tsx` 를 목업 톤(빈티지 여행/여권)에 맞춰 다시 만들었습니다. 비행기
-창문 배경(`/ui/intro-window.webp`, 없으면 노을 그라데이션 폴백) 위에 종이빛 카드 + 골드
-엠블럼 + 우표 스탬프 + `PORTAL 시작하기` 버튼. 오디오 언락(`unlockAudio`)은 클릭 핸들러
-안에서 동기 호출하는 기존 규약을 그대로 유지했습니다.
-
-### 변경/추가 파일 요약
-
-| 파일 | 변경 |
-|---|---|
-| `components/StepMoment.tsx` | **신규** — 09 YOUR MCM MOMENT (촬영 사진 확인) |
-| `components/StepShop.tsx` | **신규** — TODAY'S MCM + SAVED ITEMS |
-| `CLAUDE.md` | **신규** — 로컬 Claude Code용 프로젝트 가이드 |
-| `components/StepIntro.tsx` | 시작 화면 빈티지 리디자인 |
-| `components/StepHandoff.tsx` | QR 중심 재정리 + SHOP 으로 넘어가는 "다음" |
-| `components/PortalApp.tsx` | `moment` / `shop` 스텝 렌더 연결 |
-| `lib/FlowContext.tsx` | `SHOW_QR` / `SHOW_SHOP` 액션, `CAPTURE`→`moment` |
-| `lib/composite.ts` | `drawPersonLayer` 마스크 가장자리 정리(`buildMaskFilter`) |
-| `lib/types.ts` | `StepId` 에 `moment`·`shop`, `Product.price`, `SavedItem` 타입 |
-| `config/portal.config.ts` | 활성 World `backgroundImage` 켜기, 누끼 노브, 새 화면 COPY |
-| `config/products.config.ts` | `price` 추가, `SAVED_ITEMS` 샘플 추가 |
-
-> 참고: README 상단의 "플로우 (8화면)" 표는 촬영 이후 흐름이 위와 같이 늘어나면서
-> 최신이 아닙니다. 실제 순서는 `07 EXPERIENCE → 09 MOMENT → 08 QR → SHOP` 입니다.
-
----
-
-## 백엔드 연동 (촬영 결과 저장 · QR)
-
-백엔드(`sjf_BE`)의 `docs/API_SPEC.md` 규격에 맞춰 촬영 결과를 서버에 저장하고,
-QR로 이어지는 모바일 결과 페이지를 연결했습니다. 백엔드 서버가 꺼져 있어도
-업로드 실패 시 임시 QR로 폴백하므로 앱은 그대로 동작합니다.
-
-- 촬영 직후(`09 MOMENT` 진입) 합성 JPEG + 선택값을 `POST /api/v1/sessions` 로 전송
-- 응답으로 받은 `shareUrl` 로 QR 생성 (기존 임시 URL 대체)
-- QR을 스캔하면 열리는 `/m/{sessionId}` 모바일 결과 페이지에서
-  `GET /api/v1/sessions/{sessionId}` 로 사진 조회·저장
-
-### 변경/추가 파일
-
-| 파일 | 변경 |
-|---|---|
-| `lib/api.ts` | **신규** — `uploadSession` / `fetchSession`, dataURL→Blob 변환, API 주소 관리 |
-| `app/m/[sessionId]/page.tsx` | **신규** — QR로 열리는 모바일 결과 페이지 |
-| `components/StepMoment.tsx` | 촬영 직후 서버 업로드 후 `shareUrl` 저장 |
-| `components/StepHandoff.tsx` | 받은 `shareUrl` 로 QR 생성(없으면 임시 URL 폴백) |
-| `lib/FlowContext.tsx` | `shareUrl` 상태 + `SET_SHARE_URL` 액션 추가 |
-| `.env.local` | `NEXT_PUBLIC_API_BASE` (백엔드 주소, git 제외) |
-
-> 로컬 테스트 시 백엔드 `ALLOWED_ORIGINS` 에 `http://localhost:3000` 허용 필요.
-> 폰/배포 테스트는 백엔드 `FRONTEND_BASE_URL`·`PUBLIC_API_BASE_URL` 을 실제 IP/도메인으로 변경.
-
-
----
-
-## 8/18 수정 내용
-
-이 날 작업은 다섯 갈래입니다. **(1) 조합별 실사 배경을 18조합 전량으로 확장하고 카드용·
-촬영용 버전을 나눴고, (2) 컬러웨이를 black → beige 로 바꾸고, (3) 09 MOMENT 에 실시간 AI
-여권(MCM TRAVEL PASSPORT)을 붙였으며, (4) 피그마 목업에 맞춰 시작·리빌·선택·로딩 화면을
-다시 디자인**했습니다. 마지막으로 기존 타입 에러도 정리했습니다.
-
-### 1. 조합별 실사 배경 18조합 + 버전 분리 (카드=1 · 촬영=2)
-
-`/img` 촬영본(핑크·베이지 × 무드 3 × 여정 3 = 18조합, 각 2버전)을 `public/worlds/` 아래로
-옮기고, 조합 배경 경로를 정적 표(map) 대신 **파일명 토큰으로 만드는 함수**
-`comboBackgroundImage()` 로 바꿨습니다. 이제 자신감(bold)·베이지까지 18조합 전부 실사
-배경이 나갑니다.
-
-```
-public/worlds/{색}/{색}_{무드토큰}_{여정토큰}{버전}.png
-  예) public/worlds/pink/pink_sul_city1.png       (04 나라 선택 카드)
-      public/worlds/pink/pink_sul_city2.png       (07 촬영 합성 배경)
-```
-
-파일명 토큰은 내부 키와 아래처럼 대응합니다.
-
-| 무드 키 | 라벨 | 토큰 |  | 여정 키 | 라벨 | 토큰 |
-|---|---|---|---|---|---|---|
-| `light` | 설렘 | `sul` |  | `explore` | 도시 곳곳 둘러보기 | `city` |
-| `calm` | 여유 | `calm` |  | `culture` | 쇼핑·문화 즐기기 | `shop` |
-| `bold` | 자신감 | `confidence` |  | `relax` | 여유롭게 쉬기 | `relax` |
-
-**버전 규약**: 같은 조합이라도 화면에 따라 다른 컷을 씁니다.
-
-- `variant 1` — 04 나라 선택 화면의 **미리보기 카드**
-- `variant 2` — 07 촬영 화면의 **인물 뒤 합성 배경**
-
-`comboBackgroundImage(colorway, answers, variant)` 로 뽑고, 촬영/프리로드가 쓰는
-`applyComboBackground(...)` 는 기본이 `variant 2` 입니다. 파일이 없는 조합은 gradient 로
-폴백합니다.
-
-### 2. 컬러웨이 black → beige 전환
-
-새 배경 세트가 `pink` / `beige` 기준이라 두 번째 컬러웨이를 `beige` 로 바꿨습니다.
-`ColorwayKey`(`lib/types.ts`), 제품 정의(`config/products.config.ts`),
-`colorwayScore`(`config/portal.config.ts`)를 함께 수정했고, **베이지 가방 사진**
-(`public/products/stark_backpack_visetos-beige.png`)도 넣었습니다. 사진이 없으면 베이지색
-실루엣(SVG)으로 폴백합니다.
-
-### 3. 피그마 목업 반영 — 시작·리빌·선택·로딩 화면
-
-목업 확정안에 맞춰 화면 겉모습을 다시 잡았습니다. 정적 배경 3장은 `public/ui/` 에
-있습니다(`bg1.jpg` 시작·리빌, `load.jpg` 로딩, `qr.jpg` 선택). 파일이 없으면 각각
-그라데이션으로 폴백합니다.
-
-- **01 시작(`StepIntro`)** — 종이 카드·스탬프를 걷어내고 비행기 창문(bg1) 위에 바로
-  `MCM PORTAL` + `Where will MCM take you?` + 동의 체크 + `여행 시작하기`. 오디오 언락은
-  기존대로 클릭 핸들러 안에서 동기 호출합니다.
-- **06 리빌(`StepReveal`)** — 조합 배경 대신 **비행기 창문(bg1)** 위에
-  `Your MCM world is…` + 도착 도시명을 띄웁니다. 조합 실사 배경은 이 화면이 아니라 07
-  촬영 화면에서 인물 뒤로 합성됩니다.
-- **02·03·04 선택(`StepFrame`)** — 우상단 `01 / 03` 표기를 **가운데 진행 점(dot)** 으로
-  바꾸고, 공통 배경(qr)의 종이 베일을 옅게 낮췄습니다.
-- **나라 선택(`StepJourney`)** — SVG 아이콘 카드를 **조합 실사 사진 카드(variant 1)** 로
-  교체했습니다. (이 화면이 무드보다 앞으로 오면서, 미리보기 컷은 `JOURNEY_CARD_MOOD`
-  대표 무드로 고정됩니다 — 아래 "AI 무드 분석" 참고.)
-- **05 로딩(`StepOpening`)** — 배경(load) 베일을 낮추고 문구를
-  "고객님에게 어울리는 장소를 찾고 있어요." 로 맞췄습니다.
-
-> ⚠️ 06 리빌의 **도시 이름**은 여전히 점수 매칭(`resolveWorld`)을 따릅니다. 일부 조합은
-> 도시 라벨과 촬영 배경의 무드가 어긋날 수 있고, 18조합에 도시를 직접 고정하려면 별도
-> 매핑표가 필요합니다.
-
-### 4. 09 MOMENT — MCM TRAVEL PASSPORT (실시간 AI 멘트)
-
-촬영 사진 옆에 **여권 카드**를 발급합니다. 출발지(MUNICH 고정)·도착지(매칭 World)·동행
-제품은 상태값으로 조립하고, **여행 유형과 추천 이유 두 줄만 실시간 AI 로 생성**합니다.
-
-- AI 호출은 브라우저가 아니라 서버 라우트 **`app/api/passport/route.ts`** 를 거칩니다.
-  키(`OPENAI_API_KEY`)는 서버에서만 읽혀 화면·네트워크 탭에 노출되지 않습니다.
-- 키가 없거나 실패하면 `lib/passport.ts` 의 결정적 폴백 문구로 자동 대체됩니다(무중단).
-
-```
-# .env.local (git 제외 — 서버 전용, NEXT_PUBLIC_ 붙이지 말 것)
-OPENAI_API_KEY=sk-...
-```
-
-#### OpenAI API 키 로컬 설정
-
-Owner에게 전달받은 OpenAI API 키 전체 값을 프로젝트 루트의 `.env.local`에 입력합니다.
-OpenAI 콘솔에서 지정한 키의 표시용 이름과 관계없이, 환경변수 이름은 정확히
-`OPENAI_API_KEY`로 사용해야 합니다.
-
-```env
-OPENAI_API_KEY=sk-proj-복사한_전체_키
-```
-
-키 앞뒤에 공백·따옴표를 넣지 말고, `NEXT_PUBLIC_OPENAI_API_KEY`처럼 브라우저에 노출될 수
-있는 이름을 사용하지 마세요. 키는 생성 직후에만 전체 값을 확인할 수 있으므로 안전한 곳에
-보관해야 하며, `.env.local`은 커밋하지 않습니다.
-
-키를 넣은 뒤에는 `npm run dev`를 재시작해야 반영됩니다(없으면 폴백으로 진행).
-
-#### `401 Incorrect API key provided`가 발생할 때
-
-`.env.local`에 키가 있어도 Windows 사용자/프로세스 환경변수에 같은 이름의
-`OPENAI_API_KEY`가 이미 설정되어 있으면, 실행 중인 서버가 오래된 키를 사용할 수 있습니다.
-프로젝트 폴더에서 개발 서버를 중지한 뒤 아래처럼 현재 PowerShell 세션의 값을 지우고
-재실행합니다.
-
-```powershell
-cd C:\sfj\sjf_track
-Remove-Item Env:OPENAI_API_KEY -ErrorAction SilentlyContinue
-npm run dev
-```
-
-매번 지우지 않으려면 사용자 환경변수를 한 번 삭제한 뒤 PowerShell과 VS Code를 다시 엽니다.
-
-```powershell
-[Environment]::SetEnvironmentVariable("OPENAI_API_KEY", $null, "User")
-```
-
-macOS/Linux에서는 현재 셸의 환경변수를 다음처럼 지웁니다.
-
-```bash
-unset OPENAI_API_KEY
-npm run dev
-```
-
-그래도 401이 계속되면 Owner에게 키가 유효한지, 키를 만든 Project와 현재 사용 중인 Project가
-같은지 확인을 요청합니다. 키가 노출되었거나 분실된 경우에는 Owner가 기존 키를 폐기하고
-새 키를 전달해야 합니다.
-
-#### ⚠️ Free Tier 일일 요청 한도 (RPD 50) — ✅ Tier 1 상향으로 해결
-
-> **해결됨 (8/19).** 결제 수단을 등록해 Tier 1로 올렸습니다 — `gpt-4o-mini` 의 RPD가
-> 50 → **10,000** 으로 늘었습니다. 아래는 문제가 있었던 당시 기록이자, 왜 라우트별로
-> 다른 모델을 쓰게 됐는지("8. AI 모델 선택" 절)의 배경입니다.
-
-현재 키는 처음 **Free Tier** 였어서 `gpt-4o-mini` 의 **일일 요청이 50건**으로 묶여 있었습니다.
-초과하면 429 `rate_limit_exceeded` 가 떨어지고 약 30분 뒤에 풀립니다.
-
-```
-Rate limit reached for gpt-4o-mini ... on requests per day (RPD): Limit 50, Used 50
-```
-
-부스는 체험 1회당 AI를 **2번** 부릅니다.
-
-| 호출 | 용도 | 실패 시 |
-|---|---|---|
-| `/api/analyze-mood` | 카메라 의상 무드 판정 (핵심) | 로컬 색 분석 폴백 |
-| `/api/passport` | 여권 카피 생성 | 결정적 폴백 문구 |
-
-Free Tier 그대로였다면 **하루 최대 25명**이면 한도가 끝나고 그 뒤 방문객은 전부 폴백으로
-돌아갈 뻔했습니다. 두 라우트 모두 폴백이 있어 화면이 죽지는 않지만, AI 체험이라는 기획
-의도가 사라지는 문제였습니다.
-
-> 이미지 생성이 막힌 것과는 **별개의 제약**이었습니다. 그건 모델 접근 권한 문제,
-> 이건 요청 수 문제라 Tier 를 올리자 둘 다 함께 풀렸습니다.
-
-Tier 1 이후에도 계정 대시보드를 다시 확인해 보니 **`gpt-4o-mini` 만 유일하게 일일 한도가
-명시돼** 있고 다른 모델들은 RPM 만 있었습니다. 이 발견이 "8. AI 모델 선택" 절에서
-`analyze-mood` 라우트를 다른 모델로 옮긴 계기입니다.
-
-폴백이 실제로 얼마나 도는지는 `window.__portalEvents` 의
-`mood_analyzed { source: "ai" | "local" }` 비율로 부스 운영 중에 바로 확인할 수 있습니다.
-
-### 5. 빌드 타입 에러 정리
-
-`lib/composite.ts` 의 `buildMaskFilter()` 에서 `SEGMENTATION_CONFIG` 값이 `as const` 로
-리터럴 타입이 되어 "값이 1/100 이면 끔" 가드가 막히던 문제를, 세 값을 `number` 로 받아
-해소했습니다(런타임 동작 동일). `npx tsc --noEmit` 통과합니다.
-
-### 변경/추가 파일 요약
-
-| 파일 | 변경 |
-|---|---|
-| `lib/passport.ts` | **신규** — 여권 데이터 조립 + 폴백 + `/api/passport` 호출 |
-| `app/api/passport/route.ts` | **신규** — OpenAI 서버 라우트(키 서버 전용) |
-| `components/StepMoment.tsx` | 사진 옆 여권 카드 추가(기존 업로드 로직 유지) |
-| `components/StepIntro.tsx` | 시작 화면 목업 리디자인(bg1, 카드 제거, 문구·버튼) |
-| `components/StepReveal.tsx` | 리빌 배경 bg1 + `Your MCM world is…` + 도시명 |
-| `components/StepFrame.tsx` | 진행 표시 → 가운데 점, 선택 배경(qr) 베일 완화 |
-| `components/StepJourney.tsx` | 나라 선택 → 조합 실사 사진 카드(variant 1) |
-| `components/StepOpening.tsx` | 로딩 배경(load) + 문구 |
-| `config/portal.config.ts` | `comboBackgroundImage`/`applyComboBackground` variant 지원 · 여권/화면 COPY · `colorwayScore` beige |
-| `config/products.config.ts` | 컬러웨이 `black` → `beige` |
-| `lib/types.ts` | `ColorwayKey` 를 `pink` / `beige` 로 |
-| `lib/composite.ts` | `buildMaskFilter` 타입 에러 수정 |
-| `public/worlds/{pink,beige}/*` | 조합별 실사 배경(각 18장, 버전 1·2) |
-| `public/ui/{bg1,load,qr}.jpg` | 시작·로딩·선택 정적 배경 |
-| `public/products/*-beige.png` | 베이지 가방 사진 |
-
-> `public/worlds/` 의 png 는 용량이 큽니다(36장 ≈ 100MB). git 에 넣을 때는 필요한 버전만
-> add 하거나 git-lfs 를 검토하세요. `.env.local` 은 `.gitignore` 대상이라 커밋에 안 들어갑니다.
-
-### 남은 작업 (에셋·결정 대기)
-
-- ~~**제품 사진**~~ — 실제 제품 사진(Ottomar 비세토스 위켄더)으로 교체 완료. "9. 제품
-  사진·설명 교체" 절 참고.
-- **03 활동 카드 미리보기 컷** — 무드가 뒤로 가면서 카드 사진은 `JOURNEY_CARD_MOOD`
-  (기본 `calm`) 한 무드로 고정됩니다. 활동 전용 컷 3장을 따로 준비할지 회의 필요.
-- **무드 판정 임계값 튜닝** — 부스 조명이 정해지면 `MOOD_ANALYSIS_CONFIG` 의 폴백 임계값과
-  샘플 영역을 현장에서 한 번 맞춰야 합니다.
-
----
-
-## 8/19 수정 내용 — AI 무드 분석 전환 + 플로우 순서 변경
-
-제공된 OpenAI 키가 **Free Tier 라 이미지 생성(gpt-image / DALL·E)을 쓸 수 없습니다.**
-그래서 "World 배경을 AI로 생성한다"는 방안을 폐기하고(배경은 이미 촬영본 36장으로 대체됨),
-AI를 **"보고 판정하는"** 쪽 — 카메라로 의상을 읽어 무드를 정하는 쪽 — 으로 옮겼습니다.
-Vision 입력은 일반 `chat.completions` 호출이라 Free Tier 에서도 제약 없이 동작합니다.
-
-```
-전:  제품 → 무드(수동 선택) → 활동 → 로딩 → 리빌 → 촬영 → 사진확인 → QR
-후:  제품 → 활동 → 무드(AI 카메라 분석) → 로딩 → 리빌 → 촬영 → 사진확인 → QR
-```
-
-World 결정 규칙(`resolveWorld`)·조합 배경 파일명 규약·합성 파이프라인·백엔드 연동은
-**전부 그대로**입니다. AI가 정한 무드가 기존 `MoodKey` 로 그대로 들어가기 때문에,
-백엔드로 올라가는 `SessionMetadata` 도 바뀌지 않았습니다.
-
-### 1. AI 무드 분석 (04 MOOD)
+### 04 MOOD — 카메라로 의상을 읽어 무드 판정
 
 ```
 카메라 프리뷰(가이드 프레임)
   → [AI 무드 분석 시작] → 현재 프레임 캡처(768px JPEG)
   → POST /api/analyze-mood  (서버가 OpenAI Vision 호출)
-  → 결과 카드(컬러 칩 + 무드 + 한 줄 코멘트) → [다음] → 05 프리로드
+  → 결과를 화면에 보여주지 않고 바로 05 로 넘어감
 ```
+
+판정 결과는 카드로 노출하지 않습니다. `state.moodAnalysis` 에 담겨 World 매칭과
+09 여권 카피에만 쓰입니다.
 
 | 파일 | 역할 |
 |---|---|
-| `components/StepMood.tsx` | 3단계 화면 — `guide` → `analyzing` → `result` |
+| `components/StepMood.tsx` | 2단계 화면 — `guide` → `analyzing` |
 | `lib/moodAnalysis.ts` | 프레임 캡처, 서버 호출, **로컬 색 분석 폴백** |
-| `app/api/analyze-mood/route.ts` | 서버 전용 OpenAI Vision 호출 (`detail: "low"`) — 현재 모델은 "8. AI 모델 선택" 절 참고 |
+| `app/api/analyze-mood/route.ts` | 서버 전용 OpenAI Vision 호출 (`detail: "low"`) |
 | `MOOD_ANALYSIS_CONFIG` | 캡처 크기 · 샘플 영역 · 폴백 임계값 |
-
-무드 3종은 **기존 키와 라벨을 그대로** 씁니다 (배경 파일명·World 매핑이 이 값을 쓰므로).
 
 | 무드 | 내부 키 | AI 토큰 | 파일명 토큰 | 의상 특성 |
 |---|---|---|---|---|
@@ -781,12 +626,11 @@ World 결정 규칙(`resolveWorld`)·조합 배경 파일명 규약·합성 파�
 > 이름이 겹치면 정반대로 매핑됩니다. 세 번째 무드는 화면 라벨이 "자신감"이므로
 > `CONFIDENCE` 로 통일했고, 라우트는 이 세 토큰 외의 값이 오면 502를 돌려 폴백에 맡깁니다.
 
-### 2. 실패하면 — 로컬 색 분석 폴백
+### 실패하면 — 로컬 색 분석 폴백
 
 키 미설정(503)·요청 한도(429)·오프라인·타임아웃 등 **어떤 실패에도 화면이 멈추지 않습니다.**
 `analyzeMoodLocally()` 가 캡처 프레임의 상반신 영역 픽셀을 직접 읽어 평균 명도·채도로
 같은 3종을 판정하고 그대로 진행합니다(난수 없음 — 같은 사진이면 항상 같은 결과).
-여권(`lib/passport.ts`)이 쓰는 "실패해도 폴백으로 진행" 규약과 동일합니다.
 
 부스 조명에 맞춰 `MOOD_ANALYSIS_CONFIG` 로 조정하세요.
 
@@ -813,134 +657,140 @@ vividMinChroma: 0.6,                        // 채도 높은 포인트 컬러 �
 폴백이 실제로 얼마나 도는지는 `window.__portalEvents` 의
 `mood_analyzed { source: "ai" | "local" }` 로 확인합니다.
 
-### 3. 카메라 확보 시점이 05 → 04 로 앞당겨짐
+### 04~05 구간의 체감 시간
 
-무드 분석에 카메라가 필요하므로 권한 팝업이 04에서 뜹니다. 스트림은 여전히
-`PortalRuntime` 이 소유하고 `acquireCamera()` 가 중복 호출을 dedupe 하므로,
-**05 프리로드와 07 합성이 같은 스트림을 재사용**합니다(팝업은 체험당 한 번).
+이 구간에서 실제로 걸리는 일은 무드 판정(API 호출) 하나뿐입니다. World 매칭
+(`resolveWorld`)도 배경 선택(`comboBackgroundImage`)도 로컬 계산이라 즉시 끝나서,
+그냥 두면 "AI가 제대로 본 게 맞나" 싶을 만큼 순식간에 지나갑니다.
 
-### 4. 활동 선택(03) — 화면은 그대로, 순서만 이동
+**체감 시간은 오직 "최소 표시 시간" 으로 조절합니다.**
 
-카드 3장·라벨·리플 연출은 손대지 않았습니다. 다만 이 시점엔 무드가 아직 없어 조합 사진을
-만들 수 없으므로, 미리보기 컷은 `JOURNEY_CARD_MOOD`(기본 `calm`)의 variant 1 으로 고정합니다.
-실제 촬영 배경(variant 2)은 AI가 정한 무드를 그대로 따르므로 영향 없습니다.
+- **04 analyzing** — `ANALYZING_MIN_VISIBLE_MS`(2,200ms, `StepMood.tsx`). 실제 API 호출이
+  보통 1.8~3.1초라, 이 바닥은 카메라 실패로 로컬 폴백이 즉시 끝났을 때 주로 작동합니다.
+- **05 opening** — `OPENING_STAGES`(`portal.config.ts`, 합계 **10,000ms**). 문구와 지속
+  시간을 한 표로 묶어 뒀습니다. 화면의 진행 점은 항목 수에 맞춰 자동으로 늘어나므로,
+  단계를 더하거나 빼도 컴포넌트는 안 고쳐도 됩니다.
 
-### 5. 개인정보
+```
+2.5s  고객님의 무드를 확인했어요.        ●○○
+3.5s  무드에 어울리는 도시를 찾고 있어요.  ●●○
+4.0s  도착할 장면을 준비하고 있어요.      ●●●
+```
+
+실측(카메라 실패 → 로컬 폴백 기준) 분석 시작에서 06 리빌까지 **약 12.7초**. 실제 카메라·AI
+판정이 붙으면 13초 안팎입니다. 길다고 느끼면 `OPENING_STAGES` 의 ms 만 줄이세요.
+
+> ⚠️ **모델을 무겁게 만들어 시간을 벌지 마세요.** 모델 지연은 요청마다 들쭉날쭉해
+> 연출 길이의 기준이 될 수 없고, 위 최소 표시 시간 아래로 어차피 가려집니다.
+> 타임아웃을 넘기면 로컬 폴백으로 떨어져 판정만 나빠집니다.
+
+### 09 여권 카피에 오늘 착장 반영
+
+09 화면의 MCM TRAVEL PASSPORT 가 "여행 유형 / 추천 이유" 를 지을 때, 04에서 AI가 읽은
+**오늘 입고 온 옷의 색·무드**(`state.moodAnalysis`)를 재료로 함께 넘깁니다. 같은 제품·같은
+도시라도 손님마다 다른 문장이 나옵니다.
+
+| 파일 | 역할 |
+|---|---|
+| `lib/passport.ts` | `PassportInput` 의 `outfitColorName?` / `outfitDescription?` (선택값) |
+| `app/api/passport/route.ts` | 착장 반영 + 길이(14~24자)·톤(마침표·종결어미 금지) 규칙 + `normalizeReason()` |
+| `components/StepMoment.tsx` | `moodAnalysis` 의 색·설명을 요청에 실어 보냄 |
+
+값이 없으면 해당 줄 자체를 프롬프트에서 빼 빈 라벨이 남지 않습니다. 폴백 문구
+(`buildFallbackPassport`)에는 반영하지 않습니다 — 폴백은 네트워크 없이 결정적으로 계산돼야 합니다.
+
+### 라우트별 모델 선택
+
+GPT-5.6 은 **Sol(플래그십) > Terra(중급) > Luna(저비용·저지연)** 3단 구성입니다. 두 라우트가
+하는 일이 달라 티어도 다르게 골랐습니다.
+
+| 라우트 | 모델 | 이유 |
+|---|---|---|
+| `/api/analyze-mood` | **`gpt-5.6-luna`**, `reasoning_effort: "none"` | "단순 분류/라우팅" 이 Luna 의 설계 목적 — 의상 색을 보고 3분류하는 이 라우트에 맞습니다. 실측 1.8~3.1초, `reasoning_tokens: 0`. RPD 상한 없음 |
+| `/api/passport` | **`gpt-5.6-terra`**, `reasoning_effort: "low"` | 제약(14~24자·어미) 있는 한국어 창작이라 상위 티어가 값을 합니다. 같은 프롬프트 6표본 비교에서 **4o-mini 4/6 → Terra 6/6** 준수. 체험당 1회 호출이라 단가 차이는 무시할 수준 |
+
+> ⚠️ **Luna 를 Terra 로 올리지 마세요.** 3분류 작업이라 판정 품질은 거의 안 달라지는데
+> 입력 단가는 10배($0.20 → $2.00/M)이고, 체험당 반드시 호출되는 경로라 비용이 손님 수에
+> 그대로 비례합니다. 연출이 짧은 문제는 위 "체감 시간" 절의 방법으로 푸세요.
+
+> ⚠️ **gpt-5.6 계열이 거부하는 파라미터 2종** (둘 다 400). 모델을 바꿀 때 여기부터 보세요.
+> - `max_tokens` → **`max_completion_tokens`** 로 이름이 바뀌었습니다. 추론 토큰도 이 예산을
+>   함께 쓰므로 출력이 짧아도 넉넉히 잡으세요(모자라면 빈 응답 → 폴백 문구).
+> - `temperature` → `"Only the default (1) value is supported"`. 여권 카피가 문구 다양성을
+>   위해 쓰던 `0.9` 를 못 씁니다. 대신 프롬프트에 "주어진 색만 쓰라"는 문장을 넣어
+>   착장에 없는 색을 지어내는 것을 막았습니다 — **이 문장을 지우지 마세요.**
+
+**⚠️ 부스 오픈 전 확인**
+
+- 키를 발급한 OpenAI 프로젝트가 **`gpt-5.6-luna` 와 `gpt-5.6-terra` 둘 다** 접근 가능해야
+  합니다. 접근이 없으면 라우트가 5xx 로 떨어지고 클라이언트가 조용히 폴백으로 넘어갑니다 —
+  화면은 안 죽지만 **AI가 매번 폴백으로만 돌게 됩니다.**
+- 실제 옷으로 한 번 돌려 `window.__portalEvents` 에 `mood_analyzed { source: "ai" }` 가
+  찍히는지 확인하세요.
+- 모델 이름은 라우트 코드의 상수라 서버 재시작 없이 다음 요청부터 반영됩니다.
+
+### 개인정보
 
 분석용 프레임은 **저장하지 않습니다.** 판정을 위해 OpenAI 로 한 번 전송되고 메모리에서
 버려지며, 백엔드(`/api/v1/sessions`)로 올라가는 사진은 07에서 찍은 합성 결과뿐입니다.
 외부 전송이 일어나므로 01 START 동의 문구(`COPY.consentLabel`)에 "AI 스타일 분석"을
 명시해 두었습니다 — 문구를 손볼 때 이 부분을 빼지 마세요.
 
-### 6. 04 결과 화면 — 자동 진행 타이머
+---
 
-무드 분석 결과 카드는 `MOOD_ANALYSIS_CONFIG.resultAutoAdvanceMs`(기본 **6초**) 안에 [다음]을
-누르면 그 클릭으로, 누르지 않으면 타이머로 05 프리로드에 자동 진입합니다. 손님이 결과만 보고
-그냥 자리를 떠도 다음 손님을 위해 화면이 멈춰 있지 않게 하는 안전장치입니다.
+## 백엔드 연동 (촬영 결과 저장 · QR)
 
-두 경로 모두 같은 ripple(`"final"`) 전환을 타 연출이 동일합니다 — 자동 진행은 클릭 좌표가
-없어 [다음] 버튼 중심에서 물결이 퍼지도록 만들었습니다.
+백엔드(`sjf_BE`)의 `docs/API_SPEC.md` 규격에 맞춰 촬영 결과를 서버에 저장하고,
+QR로 이어지는 모바일 결과 페이지를 연결합니다. 백엔드가 꺼져 있어도 업로드 실패 시
+임시 QR로 폴백하므로 앱은 그대로 동작합니다.
+
+- 촬영 직후(`09 MOMENT` 진입) 합성 JPEG + 선택값을 `POST /api/v1/sessions` 로 전송
+- 응답으로 받은 `shareUrl` 로 QR 생성 (실패 시 임시 URL 폴백)
+- QR을 스캔하면 열리는 `/m/{sessionId}` 에서 `GET /api/v1/sessions/{sessionId}` 로 사진 조회·저장
 
 | 파일 | 역할 |
 |---|---|
-| `components/StepMood.tsx` (`ResultScreen`) | 타이머 · 카운트다운 바 · 중복 전환 방지(`advancedRef`) |
-| `app/globals.css` (`@keyframes mood-countdown`) | 카운트다운 바 애니메이션 — 길이는 인라인 `animation-duration` 으로 config 값과 동기화 |
-| `MOOD_ANALYSIS_CONFIG.resultAutoAdvanceMs` | 자동 진행까지의 시간(ms). 코멘트를 길게 바꾸면 함께 늘리세요 |
+| `lib/api.ts` | `uploadSession` / `fetchSession` / `checkHealth`, dataURL→Blob 변환, API 주소 관리 |
+| `app/m/[sessionId]/` | QR로 열리는 모바일 페이지 (랜딩 · `photo` · `shop`) |
+| `components/StepMoment.tsx` | 촬영 직후 서버 업로드 후 `shareUrl` 저장 |
+| `components/StepHandoff.tsx` | 받은 `shareUrl` 로 QR 생성 |
 
-### 7. 여권 카피에 오늘 착장 정보 연결
+> 로컬 테스트 시 백엔드 `ALLOWED_ORIGINS` 에 `http://localhost:3000` 허용이 필요합니다.
+> 폰/배포 테스트는 위 "환경 변수" 절 참고.
 
-09 화면의 MCM TRAVEL PASSPORT 가 "여행 유형 / 추천 이유" 를 지을 때, 04에서 AI가 읽은
-**오늘 입고 온 옷의 색·무드**(`state.moodAnalysis`)를 재료로 함께 넘깁니다. 같은 제품·같은
-도시라도 손님마다 다른 문장이 나옵니다.
+### 🔴 BE 요청 — 여권 카피(`travelType` / `reason`) 저장·반환
 
-> 착장 O: "시크한 블랙과 부드러운 핑크의 조화" · 착장 X: "부드러운 핑크가 우아한 아침을 완성해"
-> — 착장 없이는 제품·도시 조합에서만 나올 수 있는 일반적인 문장이었습니다.
+**모바일 사진 페이지(`/m/{sessionId}/photo`)에 여권 카드가 사진 위에 함께 나갑니다.**
+그런데 여권의 AI 두 줄은 **지금 어디에도 저장되지 않습니다.** 09 화면에서 `/api/passport`
+가 만들어 브라우저 메모리에만 있다가 부스를 떠나면 사라집니다. 그래서 모바일에서는
+같은 값으로 계산한 **폴백 문구**가 나가고, 손님이 부스에서 본 문장과 달라집니다.
 
-| 파일 | 변경 |
+**요청 내용 — 필드 2개 추가:**
+
+1. `POST /api/v1/sessions` 의 `metadata` 에 아래 두 값을 받아 세션과 함께 저장
+2. `GET /api/v1/sessions/{sessionId}` 응답에 그대로 반환
+
+| 필드 | 타입 | 예시 | 비고 |
+|---|---|---|---|
+| `travelType` | `string` | `"CULTURE NOMAD"` | 영문 대문자 2단어. 여권의 "여행 유형" |
+| `reason` | `string` | `"대담한 컬러와 자유로운 이동성"` | 한국어 한 줄(14~24자). 여권의 "추천 이유" |
+
+- 둘 다 **선택(nullable)** 로 잡아주세요. AI 실패 시 부스가 폴백 문구를 보내거나 아예 안
+  보낼 수 있습니다.
+- 검증·가공 없이 **받은 문자열 그대로** 저장·반환하면 됩니다 (길이·톤 정리는 프론트
+  `normalizeReason()` 이 이미 끝냅니다).
+
+**FE는 이미 준비돼 있습니다 — 백엔드가 실어주면 코드 수정 없이 바로 반영됩니다.**
+
+| 파일 | 준비된 것 |
 |---|---|
-| `lib/passport.ts` | `PassportInput` 에 `outfitColorName?` / `outfitDescription?` 추가 (선택값) |
-| `app/api/passport/route.ts` | 프롬프트에 착장 재료 반영 지시 추가 + 길이(14~24자)·톤(마침표·종결어미 금지) 규칙 강화 + `normalizeReason()` 으로 마침표 후처리 |
-| `components/StepMoment.tsx` | `state.moodAnalysis?.dominantColor.name` / `.description` 을 요청에 실어 보냄 |
+| `lib/api.ts` | `SessionResponse` 에 `travelType?` / `reason?` 선언 |
+| `lib/passport.ts` | `passportFromSession()` — 두 값이 있으면 그걸 쓰고(`source: "ai"`), 없으면 폴백 문구로 조립 |
+| `app/m/[sessionId]/photo/page.tsx` | 여권 카드(`MobilePassport`) 렌더 |
 
-값이 없으면(구버전 세션 등) 해당 줄 자체를 프롬프트에서 빼 빈 라벨이 남지 않습니다. 폴백 문구
-(`buildFallbackPassport`)에는 반영하지 않습니다 — 폴백은 네트워크 없이 결정적으로 계산돼야 합니다.
-
-### 8. AI 모델 선택 — 라우트별로 다른 모델을 씁니다
-
-Tier 1로 올라간 뒤 계정 대시보드에 열린 모델 목록을 확인해 보니 **`gpt-4o-mini` 만 유일하게
-일일 요청 한도(RPD)가 명시돼** 있고 나머지는 RPM 만 있었습니다(위 "Free Tier 일일 요청 한도"
-절 참고). 이를 기준으로 두 라우트를 각각 다시 골랐습니다.
-
-| 라우트 | 모델 | 이유 |
-|---|---|---|
-| `/api/analyze-mood` | **`gpt-5.6-luna`**, `reasoning_effort: "none"` | OpenAI가 "cost-sensitive, high-volume, latency-sensitive workloads" 용도로 설계한 모델 — 정확히 이 라우트(체험당 반드시 호출되는 3분류 작업)에 맞습니다. `none` 으로 내부 추론을 꺼서 응답이 빠릅니다(실측 1.8~3.1초, `reasoning_tokens: 0` 확인). RPD 상한 없음 |
-| `/api/passport` | **`gpt-4o-mini`** (유지) | `gpt-4.1-mini` 로 교체해 봤으나 튜닝된 14~24자 길이 제약을 표본 2/2에서 상당한 마진(27자, 31자)으로 초과해 되돌렸습니다. 체험 완료 시 1회만 호출돼 호출량이 적어 RPD 위험이 낮습니다 |
-
-> ⚠️ **`gpt-5.6-luna` 계열은 `max_tokens` 를 거부합니다** (`400 invalid_request_error:
-> unsupported_parameter`). `max_completion_tokens` 로 이름이 바뀌었습니다 — `gpt-4o-mini`
-> 시절 코드를 그대로 옮기면서 놓치기 쉬운 지점이라 `analyze-mood` 라우트에서 이미 고쳤습니다.
-> 앞으로 모델을 또 바꿀 때는 이 파라미터부터 확인하세요.
-
-**⚠️ 실행 전 확인 사항**
-
-- `gpt-5.6-luna` 는 신규 모델이라 **일부 프로젝트/리전에서는 접근이 막혀 있을 수 있습니다.**
-  접근이 없으면 `analyze-mood` 가 502 로 떨어지고 클라이언트가 조용히 로컬 색 분석 폴백으로
-  넘어갑니다 — 화면은 안 죽지만 **AI 분석이 매번 로컬로만 돌게 됩니다.** 부스 오픈 전에
-  실제 옷으로 한 번 테스트해서 `window.__portalEvents` 에 `mood_analyzed { source: "ai" }` 가
-  찍히는지 확인하세요.
-- 두 라우트가 서로 다른 모델을 쓰므로, 키를 발급한 OpenAI 프로젝트가 **`gpt-5.6-luna` 와
-  `gpt-4o-mini` 둘 다** 접근 가능한지 확인이 필요합니다.
-- `.env.local` 의 `OPENAI_API_KEY` 는 그대로 두면 됩니다 — 모델 이름은 라우트 코드의 상수라
-  서버 재시작 없이 다음 요청부터 바로 적용됩니다(Next dev 서버가 route.ts 변경을 자동 반영).
-
-### 9. 제품 사진·설명 교체 — Ottomar 비세토스 위켄더
-
-위 "남은 작업"에 있던 목업 불일치 문제(핑크·베이지 사진이 실제 제품과 다름)가 해결됐습니다.
-실제 제품 사진 2장을 받아 교체했습니다.
-
-| 컬러웨이 | 사진 | 카드 표기 |
-|---|---|---|
-| pink | `public/products/Ottomar_Weeke_der_in_Visetos-pink.webp` | Soft Pink |
-| beige | `public/products/Ottomar_Weeke_der_in_Visetos-beige.webp` | cognac |
-
-`Product.name` 을 "Ottomar 비세토스 위켄더" 로, `Product.line` 은 빈 문자열로 바꿨습니다(이름에
-이미 "비세토스"가 들어가 중복되므로). `components/StepProduct.tsx` 는 `line` 이 없으면 카드
-하단의 `<br/>` 을 건너뛰도록 손봤습니다(빈 줄이 남지 않게). 기존
-`stark_backpack_visetos-{pink,beige}.png` 는 코드·문서 어디에도 참조가 없어 삭제했습니다.
-
-### 10. MCM 로고 실제 에셋 적용
-
-01 START 의 엠블럼과 09 여권 헤더의 배지, 둘 다 검정 SVG 플레이스홀더였는데 실제 로고
-(`public/ui/MCM_logo.png`, 투명 배경 검정 날개 마크)로 교체했습니다. 로드에 실패하면(파일
-누락 등) 기존 SVG 로 자동 폴백합니다(다른 이미지 자산과 같은 패턴).
-
-| 파일 | 위치 |
-|---|---|
-| `components/StepIntro.tsx` (`Emblem`) | 01 START, "MCM PORTAL" 제목 위 |
-| `components/StepMoment.tsx` (`Emblem`) | 09 여권 카드 헤더 우측 |
-
-### 변경/추가 파일 요약
-
-| 파일 | 변경 |
-|---|---|
-| `lib/moodAnalysis.ts` | **신규** — 프레임 캡처 · 로컬 색 분석 폴백 · 서버 호출 |
-| `app/api/analyze-mood/route.ts` | **신규** — 서버 전용 OpenAI Vision 무드 판정 (`gpt-5.6-luna`) |
-| `components/StepMood.tsx` | 수동 선택 3버튼 → 카메라 촬영 + AI 분석 3단계 화면 + 결과 자동 진행 타이머 |
-| `components/StepJourney.tsx` | 진행 점 03→02, 리플 `final`→`step`, 카드 컷 무드 고정 |
-| `components/PortalApp.tsx` | 렌더 순서 journey → mood |
-| `lib/FlowContext.tsx` | 전환 순서 변경, `ANSWER_MOOD` → `ANALYZE_MOOD`, `moodAnalysis` 상태 |
-| `lib/types.ts` | `MoodAnalysis` / `MoodLevel` 타입, `StepId` 주석 재정렬 |
-| `lib/analytics.ts` | `mood_selected` → `mood_analyzed { value, source }` |
-| `lib/passport.ts` | `PassportInput` 에 `outfitColorName?` / `outfitDescription?` 추가 |
-| `app/api/passport/route.ts` | 착장 반영 프롬프트 + 길이·톤 규칙 강화 + `normalizeReason()` (모델은 `gpt-4o-mini` 유지) |
-| `components/StepMoment.tsx` | 여권 요청에 착장 정보 전달 + 로고 실사 적용 |
-| `components/StepIntro.tsx` | 로고 실사 적용 |
-| `components/StepProduct.tsx` | `product.line` 빈 값 처리(카드 하단 빈 줄 방지) |
-| `config/products.config.ts` | 제품명·컬러웨이 라벨·사진 경로를 Ottomar 실사로 교체 |
-| `app/globals.css` | `@keyframes mood-countdown` (결과 화면 자동 진행 바) |
-| `config/portal.config.ts` | `MOOD_ANALYSIS_CONFIG`(+`resultAutoAdvanceMs`) · `JOURNEY_CARD_MOOD` · `moodLabel()` · 무드 화면 COPY · 동의 문구 |
-| `public/products/Ottomar_Weeke_der_in_Visetos-{pink,beige}.webp` | **신규** — 실제 제품 사진 |
-| `public/ui/MCM_logo.png` | **신규** — 실제 MCM 로고 |
-| `public/products/stark_backpack_visetos-{pink,beige}.png` | **삭제** — 신규 사진으로 대체, 참조 없음 |
-| `scripts/generate-images.mjs` | **삭제** — Free Tier 로 이미지 생성 불가 |
-| `scripts/generate-worlds.mjs` | **삭제** — 위와 동일 |
+> ⚠️ 모바일에서 `/api/passport` 를 **다시 부르지 않습니다.** 사진 보러 온 사람에게 로딩을
+> 물릴 이유가 없고, 다시 불러도 부스에서 본 문장과 다른 문장이 나오기 때문입니다. 부스와
+> 똑같은 카피를 보여주는 방법은 위 두 필드를 백엔드가 보관하는 것 하나뿐입니다.
+>
+> 출발지 · 도착지 · 동행 제품 3줄은 세션 값(`worldId` / `productId` / `colorwayKey`)에서
+> 그대로 복원되므로 **지금도 부스와 100% 동일**합니다. 이번 요청은 나머지 2줄 얘기입니다.

@@ -71,13 +71,21 @@ export type StepId =
  * - `"segmentation"` — MediaPipe SelfieSegmentation (**현재 동작 방식**).
  *   배경에 아무 제약이 없는 대신, 프레임마다 마스크를 새로 추정하므로 인물이
  *   움직이면 경계가 미세하게 흔들리고 그 틈으로 실제 배경이 살짝 비칩니다.
- * - `"chromakey"` — 그린 스크린 + 색상 키잉 (**부스 제작 시 적용 예정**).
- *   색이라는 고정 기준으로 자르기 때문에 움직여도 경계가 흔들리지 않습니다.
+ * - `"chromakey"` — 그린 스크린 + 색상 키잉 (**현재 기본값**).
+ *   색이라는 고정 기준으로 자르기 때문에 움직여도 경계가 흔들리지 않고,
+ *   인물 전용 모델에 잘려나가던 가방 스트랩도 살아납니다. 대신 **그린 스크린이
+ *   반드시 있어야** 합니다 — 없으면 화면이 통째로 배경으로 판정됩니다.
  *
- * ⚠️ `"chromakey"` 는 아직 구현되지 않았습니다. `MATTING_CONFIG` 주석과
- *    README "다음 단계: 그린 스크린 크로마키" 를 참고하세요.
+ * 기본값은 `MATTING_CONFIG.mode`, 실행 중 전환은 `?matting=segmentation`.
+ * 키 컬러 실측은 `/calibrate` 에서 합니다 (README "그린 스크린 크로마키" 참고).
  */
 export type MattingMode = "segmentation" | "chromakey";
+
+/**
+ * 07 인물 분리 루프의 상태. 두 방식(useSegmentation / useChromaKey)이 같은 값을
+ * 돌려주므로 MirrorStage 가 어느 쪽이 돌고 있는지 몰라도 UI 를 그릴 수 있습니다.
+ */
+export type MattingStatus = "idle" | "loading" | "running" | "error";
 
 /** 캔버스에서 CSS gradient 를 그대로 재현하기 위한 스톱. */
 export interface GradientStop {
@@ -108,22 +116,6 @@ export interface Product {
   colorways: Colorway[];
 }
 
-/**
- * SAVED ITEMS(관심 제품) 목록에 보여줄 샘플 아이템.
- * ⚠️ 프로토타입용 예시 데이터입니다 — 실제 위시리스트 연동 전까지 고정 노출됩니다.
- */
-export interface SavedItem {
-  id: string;
-  /** "Aren Crossbody" */
-  name: string;
-  /** "Black" 처럼 카드 하단 보조 표기 */
-  line: string;
-  /** 이미지 없을 때의 플레이스홀더 색. */
-  hex: string;
-  /** /products/*.png (없으면 hex 플레이스홀더) */
-  image?: string;
-}
-
 export interface WorldDef {
   id: WorldId;
   /** 06 리빌 화면의 대문자 표기 — "NEW YORK" */
@@ -147,8 +139,6 @@ export interface WorldDef {
   gradientAngle?: number;
   /** /worlds/*.webp — 없으면 gradient 폴백 */
   backgroundImage?: string;
-  /** /bgm/{worldId}.mp3 — 파일이 없어도 앱은 무음으로 정상 동작합니다. */
-  bgm?: string;
   /** Which text color reads best on top of this gradient. */
   textOn: "light" | "dark";
 }

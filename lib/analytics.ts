@@ -1,12 +1,5 @@
-// =============================================================================
-// KPI 이벤트 훅
-// -----------------------------------------------------------------------------
-// 와이어프레임에 명시된 KPI 4종(QR 스캔율 / 사진 저장 / 관심 제품 저장 / 제품 상세
-// 확인)을 나중에 측정할 수 있도록, 지금은 **타입 안전한 호출 지점만** 심어둡니다.
-// 전송은 하지 않고 콘솔 + 메모리 버퍼로만 남깁니다.
-//
-//   개발 확인:  window.__portalEvents
-// =============================================================================
+// KPI 이벤트 — 타입 안전한 호출 지점. 전송은 하지 않고 콘솔 + 메모리 버퍼만.
+// 개발 확인: window.__portalEvents
 
 import type { ColorwayKey, JourneyKey, MoodKey, WorldId } from "@/lib/types";
 
@@ -61,8 +54,4 @@ export function track(event: PortalEvent): void {
     // 같은 배열 참조를 넘겨두므로 이후 push 가 콘솔에서도 그대로 보입니다.
     window.__portalEvents = buffer;
   }
-}
-
-export function getTrackedEvents(): readonly PortalEventRecord[] {
-  return buffer;
 }

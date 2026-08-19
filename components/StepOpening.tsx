@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
-  COPY,
+  OPENING_STAGES,
+  OPENING_TOTAL_MS,
   WORLDS,
   applyComboBackground,
   buildWorldReason,
@@ -11,20 +12,34 @@ import {
 import { track } from "@/lib/analytics";
 import { checkHealth } from "@/lib/api";
 import { usePortalFlow } from "@/lib/FlowContext";
+import { resolveMattingMode } from "@/lib/matting";
 import { usePortalRuntime } from "@/lib/PortalRuntime";
 
 // 05 PORTAL OPENING
 // 연출 화면이자 프리로드 구간입니다. 여기서 카메라 권한 팝업을 띄워두기 때문에
 // 07 진입 시 몰입이 끊기지 않습니다.
 //
-// 최소 표시 시간 — 프리로드가 빨리 끝나도 이 시간만큼은 연출을 보여줍니다.
-const MIN_VISIBLE_MS = 1800;
+// 화면 길이·문구는 전부 OPENING_STAGES(config)가 정하고 여기서는 재생만 합니다 —
+// 길이를 바꾸려면 config 만 고치세요.
 
 export default function StepOpening() {
   const { state, dispatch } = usePortalFlow();
   const runtime = usePortalRuntime();
   const { mood, journey } = state.answers;
   const colorwayKey = state.colorwayKey;
+  const [stageIndex, setStageIndex] = useState(0);
+
+  // 각 단계의 시작 시각에 맞춰 문구를 넘깁니다(누적 합 기준으로 한 번에 예약).
+  useEffect(() => {
+    const timers: number[] = [];
+    let elapsed = 0;
+    OPENING_STAGES.forEach((stage, i) => {
+      if (i === 0) return; // 0번은 처음부터 떠 있으므로 예약이 필요 없습니다.
+      elapsed += OPENING_STAGES[i - 1].ms;
+      timers.push(window.setTimeout(() => setStageIndex(i), elapsed));
+    });
+    return () => timers.forEach((t) => window.clearTimeout(t));
+  }, []);
 
   useEffect(() => {
     if (!mood || !journey || !colorwayKey) {
@@ -50,12 +65,16 @@ export default function StepOpening() {
       track({ name: "backend_unreachable" });
     });
 
+    // 크로마키는 MediaPipe 가 필요 없으므로 이 구간을 건너뜁니다(로딩이 그만큼 빨라집니다).
+    // 07 에서 WebGL 실패로 세그멘테이션으로 내려가면 그때 처음 로드하게 되어 잠깐
+    // 로딩 문구가 보일 수 있는데, 그건 폴백 경로라 감수합니다.
     const preloads = Promise.allSettled([
-      runtime.getSegmenter(),
+      ...(resolveMattingMode() === "segmentation" ? [runtime.getSegmenter()] : []),
       runtime.preloadWorldImage(world),
       runtime.acquireCamera(),
     ]);
-    const minVisible = new Promise((resolve) => window.setTimeout(resolve, MIN_VISIBLE_MS));
+    // 단계 문구를 다 보여주기 전에 화면이 넘어가면 마지막 단계가 잘려 보입니다.
+    const minVisible = new Promise((resolve) => window.setTimeout(resolve, OPENING_TOTAL_MS));
 
     void Promise.all([preloads, minVisible]).then(() => {
       if (cancelled) return;
@@ -84,10 +103,8 @@ export default function StepOpening() {
       }}
     >
       <svg
-        width="132"
-        height="132"
         viewBox="0 0 132 132"
-        className="animate-spin"
+        className="h-[8.25rem] w-[8.25rem] animate-spin"
         style={{ animationDuration: "7s" }}
         aria-hidden
       >
@@ -104,16 +121,25 @@ export default function StepOpening() {
         />
       </svg>
 
-      <p className="whitespace-pre-line text-lg leading-relaxed text-ink/70">
-        {COPY.openingMessage}
+      {/* key 로 단계마다 fadeIn 을 다시 재생시킵니다 (제자리에서 툭 바뀌면 어색). */}
+      <p
+        key={stageIndex}
+        className="animate-fadeIn whitespace-pre-line text-lg leading-relaxed text-ink/90"
+      >
+        {OPENING_STAGES[stageIndex].message}
       </p>
 
-      <div className="flex gap-2.5">
-        {[0, 1, 2].map((i) => (
+      {/* 진행 점 — 지나온 단계는 채우고 현재 단계만 깜빡입니다. 10초쯤 머무는
+          화면이라 "어디까지 왔는지" 가 보여야 멈춘 걸로 오해하지 않습니다. */}
+      <div className="flex gap-2.5" aria-hidden>
+        {OPENING_STAGES.map((_, i) => (
           <span
             key={i}
-            className="h-1.5 w-1.5 animate-pulse rounded-full bg-ink/30"
-            style={{ animationDelay: `${i * 220}ms`, animationDuration: "1.4s" }}
+            className={[
+              "h-1.5 w-1.5 rounded-full transition-colors duration-500",
+              i < stageIndex ? "bg-ink/45" : i === stageIndex ? "animate-pulse bg-ink/45" : "bg-ink/15",
+            ].join(" ")}
+            style={i === stageIndex ? { animationDuration: "1.4s" } : undefined}
           />
         ))}
       </div>

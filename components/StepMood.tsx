@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { COPY, MOOD_ANALYSIS_CONFIG, moodLabel } from "@/config/portal.config";
+import { useCallback, useRef, useState } from "react";
+import { COPY, MOOD_ANALYSIS_CONFIG } from "@/config/portal.config";
 import { track } from "@/lib/analytics";
 import { usePortalFlow } from "@/lib/FlowContext";
 import {
@@ -9,29 +9,34 @@ import {
   neutralMoodAnalysis,
   requestMoodAnalysis,
 } from "@/lib/moodAnalysis";
-import type { MoodAnalysis } from "@/lib/types";
 import { useCamera } from "@/lib/useCamera";
-import { useRipple, type RippleOrigin } from "@/lib/useRipple";
 import StepFrame from "./StepFrame";
 
 // 04 MOOD (03 / 03) — 무드를 고르는 화면이 아니라 **AI가 판정하는** 화면입니다.
 //
 //   guide     : 라이브 프리뷰 + 상의 가이드 프레임 + [AI 무드 분석 시작]
-//   analyzing : 05 와 같은 톤의 전체화면 로딩
-//   result    : 컬러 칩 + 무드 + 한 줄 코멘트 → [다음] 또는 자동 이동으로 05 진입
+//   analyzing : 05 와 같은 톤의 전체화면 로딩 → 판정이 끝나면 바로 05 로 넘어감
+//
+// 판정 결과는 화면에 보여주지 않습니다. state.moodAnalysis 에 담겨 World 매칭과
+// 09 여권 카피에만 쓰입니다.
 //
 // 카메라는 PortalRuntime 이 소유하는 스트림을 useCamera 로 빌려 씁니다. 여기서
 // 먼저 확보해두면 05 프리로드와 07 촬영이 같은 스트림을 재사용하므로, 권한 팝업은
 // 이 화면에서 한 번만 뜨고 07 진입은 오히려 빨라집니다.
-type Phase = "guide" | "analyzing" | "result";
+type Phase = "guide" | "analyzing";
+
+/**
+ * 판정이 이보다 빨리 끝나도 이 화면은 최소 이만큼 떠 있습니다 — 로컬 폴백은
+ * 즉시 끝나서 이게 없으면 화면이 깜빡이고 지나갑니다.
+ * (05 는 같은 역할을 OPENING_STAGES 합계가 합니다.)
+ */
+const ANALYZING_MIN_VISIBLE_MS = 2200;
 
 export default function StepMood() {
   const { dispatch } = usePortalFlow();
-  const { trigger, isTransitioning } = useRipple();
   const { videoRef, status, errorMessage, retry } = useCamera();
 
   const [phase, setPhase] = useState<Phase>("guide");
-  const [result, setResult] = useState<MoodAnalysis | null>(null);
   // 분석은 한 번만 — 버튼 연타로 요청이 겹치지 않게 막습니다.
   const runningRef = useRef(false);
 
@@ -43,39 +48,30 @@ export default function StepMood() {
     const video = videoRef.current;
     const frame = video ? captureAnalysisFrame(video) : null;
 
+    const minVisible = new Promise<void>((resolve) =>
+      window.setTimeout(resolve, ANALYZING_MIN_VISIBLE_MS)
+    );
     // 프레임을 못 잡았으면(카메라 실패·첫 프레임 전) 서버를 부르지 않고 바로 중립값으로.
-    const analysis: MoodAnalysis = frame
-      ? await requestMoodAnalysis(frame)
-      : neutralMoodAnalysis();
+    const [analysis] = await Promise.all([
+      frame ? requestMoodAnalysis(frame) : neutralMoodAnalysis(),
+      minVisible,
+    ]);
 
-    setResult(analysis);
-    setPhase("result");
-    runningRef.current = false;
-  }, [videoRef]);
+    track({ name: "mood_analyzed", value: analysis.mood, source: analysis.source });
+    dispatch({ type: "ANALYZE_MOOD", result: analysis });
+  }, [dispatch, videoRef]);
 
   if (phase === "analyzing") return <AnalyzingScreen />;
-
-  if (phase === "result" && result) {
-    return (
-      <ResultScreen
-        result={result}
-        disabled={isTransitioning}
-        onAdvance={(origin) =>
-          trigger(origin, "final", () => {
-            dispatch({ type: "ANALYZE_MOOD", result });
-            track({ name: "mood_analyzed", value: result.mood, source: result.source });
-          })
-        }
-      />
-    );
-  }
 
   const cameraFailed = status === "error";
   const waiting = status === "idle" || status === "requesting";
 
   return (
     <StepFrame stepNumber={3} heading={COPY.moodHeading} subline={COPY.moodSubline}>
-      <div className="relative h-[26rem] w-[36rem] overflow-hidden rounded-2xl border border-ink/10 bg-ink/90 shadow-[0_18px_50px_-28px_rgba(0,0,0,0.5)]">
+      {/* ⚠️ 크기를 키우지 마세요. 루트 폰트가 22px(부스 확대 배율)이라 rem 이
+          그대로 곱해집니다 — 26rem/36rem 이면 572×792px 이 돼 1080p 에서도
+          미리보기+버튼이 한 화면에 안 들어가고 스크롤이 생깁니다. */}
+      <div className="relative h-[20rem] w-[28rem] overflow-hidden rounded-2xl border border-ink/10 bg-ink/90 shadow-[0_18px_50px_-28px_rgba(0,0,0,0.5)]">
         <video
           ref={videoRef}
           muted
@@ -108,13 +104,13 @@ export default function StepMood() {
         )}
       </div>
 
-      <p className="mt-6 text-sm text-ink/50">{COPY.moodGuide}</p>
+      <p className="mt-4 text-sm text-ink/80">{COPY.moodGuide}</p>
 
       <button
         type="button"
         disabled={status !== "ready"}
         onClick={() => void runAnalysis()}
-        className="mt-8 rounded-full bg-ink px-12 py-4 text-sm tracking-widest2 text-paper transition-opacity hover:opacity-85 disabled:opacity-30"
+        className="mt-6 rounded-full bg-ink px-12 py-3 text-sm tracking-widest2 text-paper transition-opacity hover:opacity-85 disabled:opacity-30"
       >
         {COPY.moodScanButton}
       </button>
@@ -124,7 +120,7 @@ export default function StepMood() {
         <button
           type="button"
           onClick={() => void runAnalysis()}
-          className="mt-4 text-xs text-ink/40 underline underline-offset-4 hover:text-ink/70"
+          className="mt-2 text-xs text-ink/70 underline underline-offset-4 hover:text-ink/90"
         >
           {COPY.moodCameraSkip}
         </button>
@@ -152,7 +148,7 @@ function GuideFrame() {
 
 function Overlay({ children }: { children: React.ReactNode }) {
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-black/60 px-8 text-center text-white/90 backdrop-blur">
+    <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-black/60 px-8 text-center text-white backdrop-blur">
       {children}
     </div>
   );
@@ -170,10 +166,8 @@ function AnalyzingScreen() {
       }}
     >
       <svg
-        width="132"
-        height="132"
         viewBox="0 0 132 132"
-        className="animate-spin"
+        className="h-[8.25rem] w-[8.25rem] animate-spin"
         style={{ animationDuration: "7s" }}
         aria-hidden
       >
@@ -190,7 +184,7 @@ function AnalyzingScreen() {
         />
       </svg>
 
-      <p className="whitespace-pre-line text-lg leading-relaxed text-ink/70">
+      <p className="whitespace-pre-line text-lg leading-relaxed text-ink/90">
         {COPY.moodAnalyzing}
       </p>
 
@@ -203,101 +197,6 @@ function AnalyzingScreen() {
           />
         ))}
       </div>
-    </div>
-  );
-}
-
-/**
- * 결과 카드. 손님이 [다음]을 눌러 넘기거나, 누르지 않으면
- * `MOOD_ANALYSIS_CONFIG.resultAutoAdvanceMs` 후 자동으로 넘어갑니다.
- *
- * 두 경로 모두 같은 `onAdvance` 를 타므로 05 로 넘어가는 연출(ripple "final")이
- * 동일합니다. 자동 이동에는 클릭 좌표가 없어서 [다음] 버튼의 중심을 물결 시작점으로
- * 삼습니다 — 손님이 직접 누른 것과 같은 자리에서 퍼집니다.
- */
-function ResultScreen({
-  result,
-  disabled,
-  onAdvance,
-}: {
-  result: MoodAnalysis;
-  disabled: boolean;
-  onAdvance: (origin: RippleOrigin) => void;
-}) {
-  const nextRef = useRef<HTMLButtonElement>(null);
-  // 클릭과 타이머가 겹쳐도 전환은 한 번만 — 리듀서 가드와 별개로 연출이 두 번
-  // 시작되지 않게 여기서도 막습니다.
-  const advancedRef = useRef(false);
-
-  const advance = useCallback(() => {
-    if (advancedRef.current) return;
-    advancedRef.current = true;
-
-    const rect = nextRef.current?.getBoundingClientRect();
-    onAdvance(
-      rect
-        ? { clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2 }
-        : { clientX: window.innerWidth / 2, clientY: window.innerHeight / 2 }
-    );
-  }, [onAdvance]);
-
-  useEffect(() => {
-    const timer = window.setTimeout(advance, MOOD_ANALYSIS_CONFIG.resultAutoAdvanceMs);
-    return () => window.clearTimeout(timer);
-  }, [advance]);
-
-  return (
-    <div
-      className="flex h-full min-h-screen flex-col items-center justify-center bg-cover bg-center px-12 text-center"
-      style={{
-        backgroundImage:
-          "linear-gradient(rgba(250,248,245,0.4), rgba(250,248,245,0.4)), url(/ui/qr.jpg), linear-gradient(#faf8f5, #faf8f5)",
-      }}
-    >
-      <p className="text-xs tracking-widest2 text-ink/45">{COPY.moodResultEyebrow}</p>
-
-      <div className="mt-8 flex w-full max-w-xl flex-col items-center rounded-2xl border border-ink/10 bg-paper/80 px-12 py-12 shadow-[0_24px_70px_-40px_rgba(0,0,0,0.5)] backdrop-blur-sm">
-        {/* 추출된 메인 컬러 칩 */}
-        <span
-          className="h-16 w-16 rounded-full border border-ink/10 shadow-inner"
-          style={{ backgroundColor: result.dominantColor.hex }}
-          aria-hidden
-        />
-        <p className="mt-3 text-[0.65rem] tracking-widest2 text-ink/40">
-          {COPY.moodColorLabel}
-        </p>
-        <p className="mt-1 text-sm text-ink/60">{result.dominantColor.name}</p>
-
-        <h2 className="mt-8 font-sans text-5xl font-extrabold tracking-wide text-ink">
-          {moodLabel(result.mood)}
-        </h2>
-
-        <p className="mt-6 max-w-md text-sm leading-relaxed text-ink/60">
-          {result.description}
-        </p>
-      </div>
-
-      <button
-        ref={nextRef}
-        type="button"
-        disabled={disabled}
-        onClick={advance}
-        className="mt-12 rounded-full bg-ink px-14 py-4 text-sm tracking-widest2 text-paper transition-opacity hover:opacity-85 disabled:opacity-30"
-      >
-        {COPY.moodNext}
-      </button>
-
-      {/* 자동 이동까지 남은 시간 — 줄어드는 바로 보여줍니다. */}
-      <div className="mt-5 h-px w-40 overflow-hidden bg-ink/10">
-        <span
-          className="block h-full w-full origin-left bg-ink/45"
-          style={{
-            animation: `mood-countdown ${MOOD_ANALYSIS_CONFIG.resultAutoAdvanceMs}ms linear forwards`,
-          }}
-          aria-hidden
-        />
-      </div>
-      <p className="mt-3 text-xs text-ink/35">{COPY.moodAutoAdvanceHint}</p>
     </div>
   );
 }

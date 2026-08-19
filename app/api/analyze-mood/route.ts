@@ -1,21 +1,5 @@
-// =============================================================================
 // POST /api/analyze-mood — 의상 사진 → 무드 판정 (서버 전용)
-// -----------------------------------------------------------------------------
-// ⚠️ OpenAI 키는 **서버에서만** 읽습니다 (process.env.OPENAI_API_KEY).
-//    절대 NEXT_PUBLIC_ 접두사를 붙이지 마세요 — 붙이면 브라우저 번들에 키가 노출됩니다.
-//    클라이언트(StepMood)는 이 라우트를 fetch 할 뿐, 키를 알지 못합니다.
-//
-// 입력: { imageBase64 }  — 04 화면에서 캡처한 프레임(dataURL 또는 순수 base64)
-// 반환: { mood, dominantColor, brightnessLevel, saturationLevel, description }
-//       mood 는 **내부 키(light | calm | bold)** 로 변환해서 돌려줍니다.
-//
-// ⚠️ 이 라우트는 이미지를 **생성하지 않습니다.** Free Tier 키로는 이미지 생성
-//    (gpt-image / DALL·E)을 쓸 수 없어서, AI는 "보고 판정하는" 용도로만 씁니다.
-//    Vision 입력은 일반 chat.completions 호출이라 제약 없이 동작합니다.
-//
-// 실패하면 5xx 로 응답합니다. 클라이언트는 이때 lib/moodAnalysis.ts 의 로컬 색
-// 분석 폴백으로 자동 대체하므로 부스 화면은 절대 죽지 않습니다.
-// =============================================================================
+// ⚠️ OPENAI_API_KEY 는 서버에서만 읽습니다. 절대 NEXT_PUBLIC_ 접두사를 붙이지 마세요.
 
 import { NextResponse } from "next/server";
 
@@ -23,12 +7,6 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
-// gpt-5.6-luna: OpenAI가 "cost-sensitive, high-volume, latency-sensitive workloads"
-// 용도로 설계한 모델 — 정확히 이 라우트(부스에서 매 손님마다 호출되는 3분류 작업)의
-// 요구사항입니다. reasoning_effort: "none" 으로 내부 추론을 꺼서 응답을 빠르게
-// 받습니다(분류/추출 작업엔 추론이 오히려 지연만 늘림 — OpenAI 가이드 권장사항).
-// gpt-4o-mini 대비 RPD(일일 요청) 상한이 계정 대시보드에 따로 안 잡혀 있어
-// 부스 운영 중 한도 소진 위험도 줄어듭니다.
 const MODEL = "gpt-5.6-luna";
 const REASONING_EFFORT = "none";
 const TIMEOUT_MS = 12_000;
@@ -39,10 +17,7 @@ interface AnalyzeMoodRequestBody {
 
 /**
  * AI 분류 토큰 → 내부 무드 키.
- *
- * ⚠️ 토큰 이름에 "CALM" 을 쓰지 마세요. 내부 키 `calm` 은 **여유(RELAXATION)** 라서
- *    스펙 문서의 CALM(차분/다크톤)과 이름이 겹쳐 정반대로 매핑되는 지뢰가 됩니다.
- *    세 번째 무드는 화면 라벨이 "자신감"이므로 CONFIDENCE 로 통일합니다.
+ * ⚠️ 토큰에 "CALM" 을 쓰지 마세요 — 내부 키 `calm` 이 RELAXATION 이라 정반대로 매핑됩니다.
  */
 const MOOD_TOKEN_TO_KEY: Record<string, "light" | "calm" | "bold"> = {
   EXCITEMENT: "light",
@@ -74,6 +49,9 @@ export async function POST(req: Request) {
     "당신은 럭셔리 여행 가방 브랜드 MCM 의 스타일 분석 AI 입니다.",
     "사진 속 인물이 입은 **의상의 색(명도·채도·톤)** 을 보고 무드를 판정합니다.",
     "얼굴·외모·나이·성별·인종은 판단하지 말고, 오직 의상의 색감과 스타일만 보세요.",
+    // 부스는 그린 스크린 앞에서 촬영합니다(크로마키). 배경의 초록이 판정에 섞이면
+    // 고채도·고명도로 읽혀 전부 EXCITEMENT 로 쏠립니다.
+    "배경에 초록색 스크린이나 단색 벽이 있을 수 있습니다. **배경색은 완전히 무시하고** 인물이 입은 옷만 보세요.",
     "반드시 JSON 객체만 반환하세요. 형식:",
     '{"mood": "EXCITEMENT"|"RELAXATION"|"CONFIDENCE", "dominantColor": {"name": string, "hex": string}, "brightnessLevel": "HIGH"|"MEDIUM"|"LOW", "saturationLevel": "HIGH"|"MEDIUM"|"LOW", "description": string}',
     "",
@@ -114,10 +92,6 @@ export async function POST(req: Request) {
           },
         ],
         response_format: { type: "json_object" },
-        temperature: 0.4,
-        // ⚠️ gpt-5.6 계열은 `max_tokens` 를 거부합니다(400 invalid_request_error) —
-        //    `max_completion_tokens` 로 이름이 바뀌었습니다. gpt-4o-mini 시절 코드를
-        //    그대로 옮기면서 놓치기 쉬운 지점입니다.
         max_completion_tokens: 200,
       }),
       signal: controller.signal,

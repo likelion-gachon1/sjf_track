@@ -1,12 +1,5 @@
-// =============================================================================
-// 07 EXPERIENCE 합성 — 캔버스에 그리는 모든 코드를 이 파일에 모읍니다.
-// -----------------------------------------------------------------------------
-// 캔버스를 투명하게 두고 CSS 가 배경을 깔면, 촬영할 때 배경을 JS로 다시 그려야 해서
-// 배경 그리는 코드가 두 벌이 됩니다. cover 스케일·크롭이 조금만 어긋나도
-// "화면에서 본 것과 저장된 사진이 다른" 문제가 생깁니다.
-// → 캔버스가 배경까지 전부 그리고, 촬영은 그 캔버스를 그대로 toDataURL 합니다.
-//   덕분에 화면 = 촬영 결과가 구조적으로 보장됩니다.
-// =============================================================================
+// 07 EXPERIENCE 합성 — 캔버스가 배경까지 직접 그리고, 촬영은 toDataURL.
+// 화면 = 촬영 결과가 구조적으로 보장됩니다.
 
 import { CAMERA_CONFIG, SEGMENTATION_CONFIG } from "@/config/portal.config";
 import type { WorldDef } from "@/lib/types";
@@ -115,17 +108,11 @@ export function drawWorldBackground(
  * copy / source-in 은 **반드시 오프스크린에서** 수행해야 합니다. 메인 캔버스에서
  * copy 를 쓰면 방금 그린 배경이 지워집니다.
  *
- * ── 다음 단계: 그린 스크린 크로마키 ─────────────────────────────────────────
- * 이 함수가 "인물 레이어를 만드는" 유일한 지점이고, 그 뒤의 배경 합성
- * (drawCompositeFrame)·반전·촬영(captureFrame) 은 인물 레이어가 **어떻게**
- * 만들어졌는지 알지 못합니다. 따라서 크로마키로 바꿀 때 교체 범위는 이 한 겹입니다.
- *
- *   drawChromaKeyPersonLayer(personCtx, videoFrame, width, height)
- *     → 알파를 keyColor 와의 색 거리로 계산 (MATTING_CONFIG.chromaKey)
- *
- * MediaPipe(마스크 추정)가 필요 없어지므로 PortalRuntime.getSegmenter() 프리로드와
- * useSegmentation 루프가 useChromaKey 로 대체되고, 나머지 파이프라인은 그대로
- * 재사용됩니다. 자세한 순서는 README "다음 단계: 그린 스크린 크로마키" 참고.
+ * ── 인물 레이어는 두 방식 중 하나로 만들어집니다 ────────────────────────────
+ * 이 함수가 세그멘테이션 쪽 진입점이고, 크로마키 쪽은 lib/chromaKey.ts 의
+ * WebGL 렌더러가 같은 자리를 맡습니다. 그 뒤의 배경 합성(drawCompositeFrame)·
+ * 좌우 반전·촬영(captureFrame) 은 인물 레이어가 **어떻게** 만들어졌는지 알지
+ * 못하므로, 두 방식은 아래 파이프라인을 그대로 공유합니다.
  */
 /**
  * 세그멘테이션 마스크 가장자리 정리용 CSS filter 문자열.
@@ -183,11 +170,23 @@ export function drawCompositeFrame(params: {
   backgroundImage?: HTMLImageElement | null;
   width: number;
   height: number;
+  /**
+   * 크로마키 보정의 **"알파 보기"** 전용 — World 배경 대신 이 단색으로 채웁니다.
+   * 마젠타 같은 원색을 깔면 남은 초록 테두리와 인물에 뚫린 구멍이 즉시 드러납니다.
+   * 부스 실행 경로에서는 항상 undefined 입니다.
+   */
+  backgroundOverride?: string;
 }): void {
-  const { ctx, personCanvas, world, backgroundImage, width, height } = params;
+  const { ctx, personCanvas, world, backgroundImage, width, height, backgroundOverride } =
+    params;
 
   ctx.clearRect(0, 0, width, height);
-  drawWorldBackground(ctx, world, width, height, backgroundImage);
+  if (backgroundOverride) {
+    ctx.fillStyle = backgroundOverride;
+    ctx.fillRect(0, 0, width, height);
+  } else {
+    drawWorldBackground(ctx, world, width, height, backgroundImage);
+  }
 
   ctx.save();
   if (CAMERA_CONFIG.mirror) {

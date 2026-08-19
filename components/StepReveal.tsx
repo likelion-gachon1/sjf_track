@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { COPY, WORLDS } from "@/config/portal.config";
+import { BGM_CONFIG, COPY, WORLDS } from "@/config/portal.config";
 import { findProductChoice } from "@/config/products.config";
 import { track } from "@/lib/analytics";
 import { usePortalFlow } from "@/lib/FlowContext";
@@ -20,7 +20,8 @@ export default function StepReveal() {
   useEffect(() => {
     if (!world) return;
     // 01 START 에서 언락해둔 오디오로 재생 → 볼륨 0에서 페이드인.
-    runtime.playBgm(world.bgm);
+    // BGM 은 World 와 무관하게 한 곡입니다(BGM_CONFIG.src).
+    runtime.playBgm(BGM_CONFIG.src);
   }, [runtime, world]);
 
   if (!world) return null;
@@ -34,7 +35,7 @@ export default function StepReveal() {
           "url(/ui/bg1.jpg), linear-gradient(180deg, #cfe0ea 0%, #f4e2c4 46%, #e9b878 74%, #b9793f 100%)",
       }}
     >
-      <p className="text-xl text-ink/70">{COPY.revealEyebrow}</p>
+      <p className="text-xl text-ink/90">{COPY.revealEyebrow}</p>
 
       <h2 className="mt-3 font-sans text-7xl font-extrabold tracking-tight text-ink">
         {world.displayName}

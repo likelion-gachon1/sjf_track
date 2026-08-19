@@ -1,11 +1,6 @@
-// =============================================================================
-// MCM PORTAL — 편집용 설정 파일
-// -----------------------------------------------------------------------------
-// 팀에서 수정할 만한 값(카피, World 목록, 질문/선택지, World 결정 규칙, 카메라·
-// 합성·전환·BGM 파라미터)은 전부 이 파일에 모아뒀습니다. 컴포넌트 코드는 건드릴
-// 필요 없이 아래 상수만 바꾸면 화면에 바로 반영됩니다.
-// 제품(02 화면) 데이터만 config/products.config.ts 로 분리돼 있습니다.
-// =============================================================================
+// MCM PORTAL — 편집용 설정 파일.
+// 카피, World 목록, 질문/선택지, 파라미터 등을 이 파일에 모아뒀습니다.
+// 제품 데이터만 config/products.config.ts 에 분리돼 있습니다.
 
 import { PRODUCTS } from "@/config/products.config";
 import type {
@@ -21,10 +16,7 @@ import type {
   WorldId,
 } from "@/lib/types";
 
-// -----------------------------------------------------------------------------
-// 1. 브랜드 카피 — 화면에 보이는 모든 문구
-//    "\n" 은 화면에서 줄바꿈으로 렌더링됩니다.
-// -----------------------------------------------------------------------------
+// --- 1. 브랜드 카피 ---
 export const COPY = {
   brandName: "MCM PORTAL",
   wordmark: "MCM",
@@ -52,16 +44,11 @@ export const COPY = {
   moodGuide: "상의가 가이드 영역 안에 오도록 서주세요.",
   moodScanButton: "AI 무드 분석 시작",
   moodAnalyzing: "AI가 고객님의 스타일을\n분석하고 있어요.",
-  moodResultEyebrow: "YOUR MOOD",
-  moodColorLabel: "MAIN COLOR",
-  moodNext: "다음",
-  /** 결과 카드가 자동으로 넘어간다는 안내 — 손님이 눌러야만 하는 줄 알고 서 있지 않게. */
-  moodAutoAdvanceHint: "잠시 후 자동으로 이동합니다.",
   /** 카메라를 끝내 못 켰을 때 — 손님을 세워두지 않고 폴백 결과로 진행하는 출구. */
   moodCameraSkip: "이대로 진행하기",
 
-  // 05 PORTAL OPENING
-  openingMessage: "고객님에게 어울리는\n장소를 찾고 있어요.",
+  // 05 PORTAL OPENING 의 문구는 단계별 지속 시간과 한 몸이라 이 표가 아니라
+  // 아래 OPENING_STAGES 에 있습니다.
 
   // 06 WORLD REVEAL
   revealEyebrow: "Your MCM world is…",
@@ -122,29 +109,27 @@ export const COPY = {
   segmentationError: "World를 준비하지 못했습니다. 다시 시도해주세요.",
 } as const;
 
-// -----------------------------------------------------------------------------
-// 2. 취향 입력 — 03 TRAVEL STYLE 의 버튼형 질문 + 무드 라벨 표
-//    라벨의 "\n" 은 2줄 표기용 줄바꿈입니다.
-//    ⚠️ 무드는 내부적으로 시간대(TimeOfDay), 여행 스타일은 공간 성격(SceneType)
-//       축으로 번역됩니다. 낮/노을/밤 같은 축 이름을 라벨에 넣지 마세요.
-// -----------------------------------------------------------------------------
+// --- 1-1. 05 PORTAL OPENING 단계별 문구 + 지속 시간 ---
+// ms 합계 = 화면의 최소 표시 시간. 단계를 더하거나 빼면 진행 점이 자동 조정됩니다.
+export const OPENING_STAGES = [
+  { ms: 2_500, message: "고객님의 무드를\n확인했어요." },
+  { ms: 3_500, message: "무드에 어울리는\n도시를 찾고 있어요." },
+  { ms: 4_000, message: "도착할 장면을\n준비하고 있어요." },
+] as const;
 
-/**
- * 무드 3종의 표기 라벨.
- *
- * ⚠️ **더 이상 버튼으로 렌더링되지 않습니다.** 무드는 04 화면에서 AI가 판정하며,
- *    이 표는 결과 화면·여권·매핑 검증(buildWorldReason / debugMappingTable)이
- *    쓰는 **라벨 원천**으로만 남아 있습니다.
- * ⚠️ key 는 바꾸지 마세요 — comboBackgroundImage 의 배경 파일명 토큰과
- *    MOOD_TO_TIME 매핑이 이 값을 씁니다. (light = 설렘, calm = 여유, bold = 자신감)
- */
+/** OPENING_STAGES 를 다 보여주는 데 걸리는 시간 = 05 화면의 최소 표시 시간. */
+export const OPENING_TOTAL_MS = OPENING_STAGES.reduce((sum, s) => sum + s.ms, 0);
+
+// --- 2. 취향 입력 ---
+
+/** 무드 3종. AI가 판정 — 버튼 렌더링 없음. key 는 바꾸지 마세요. */
 export const MOOD_QUESTION: QuestionDef<MoodKey> = {
   id: "mood",
   prompt: COPY.moodHeading,
   options: [
-    { key: "light", label: "설렘", description: "새로운 순간을 기대하는" },
-    { key: "calm", label: "여유", description: "천천히 즐기고 싶은" },
-    { key: "bold", label: "자신감", description: "나답게 뽐내고 싶은" },
+    { key: "light", label: "EXCITEMENT", description: "새로운 순간을 기대하는 설렘" },
+    { key: "calm", label: "RELAXATION", description: "천천히 즐기고 싶은 여유" },
+    { key: "bold", label: "CONFIDENCE", description: "나답게 뽐내고 싶은 자신감" },
   ],
 };
 
@@ -158,49 +143,13 @@ export const JOURNEY_QUESTION: QuestionDef<JourneyKey> = {
   ],
 };
 
-export const QUESTIONS = [MOOD_QUESTION, JOURNEY_QUESTION];
-
-/** 무드 키 → 화면 표기 라벨 ("light" → "설렘"). */
+/** 무드 키 → 표기 라벨 ("light" → "EXCITEMENT"). 매핑 검증 로그에 씁니다. */
 export function moodLabel(mood: MoodKey): string {
   return MOOD_QUESTION.options.find((o) => o.key === mood)?.label ?? "";
 }
 
-/**
- * 03 활동 선택 카드의 미리보기 컷에 쓸 대표 무드.
- *
- * 이 화면에서는 무드가 아직 정해지지 않았으므로(무드는 다음 화면에서 AI가 판정)
- * 한 무드의 variant 1 컷을 고정으로 씁니다. 카드에 걸리는 사진만 바꾸고 싶으면
- * 이 값만 바꾸세요 — 실제 촬영 배경(variant 2)에는 영향을 주지 않습니다.
- */
-export const JOURNEY_CARD_MOOD: MoodKey = "calm";
-
-// -----------------------------------------------------------------------------
-// 3. World 목록 — World는 (도시 × 시간대 × 공간 성격) 으로 정의됩니다.
-//
-//    displayName : 06 리빌 화면의 대문자 표기
-//    timeOfDay   : 분위기(무드)가 반영되는 내부 축 — 화면에 노출하지 않습니다
-//    sceneType   : 여행 스타일이 반영되는 내부 축 — 화면에 노출하지 않습니다
-//    gradient    : CSS 배경용 문자열
-//    gradientStops: 07 캔버스 합성용 (gradient 와 같은 값을 유지해 주세요)
-//    backgroundImage: World 공통 실사 배경. 비어 있으면 gradient 로 폴백합니다.
-//                     ⚠️ 실사 배경은 현재 World 단위가 아니라 **조합 단위**로 붙습니다.
-//                     아래 comboBackgroundImage() 를 쓰세요 (없는 파일 경로를 여기 적으면
-//                     gradient 폴백이 막혀 배경이 빈 화면으로 나옵니다).
-//    bgm         : "/bgm/{id}.mp3" — 파일이 없어도 앱은 무음으로 정상 동작합니다
-//
-//    ── 시간대 팔레트 규약 ──────────────────────────────────────────────────
-//    실사 배경이 없는 동안에도 timeOfDay 축이 눈에 보이도록, ACTIVE_WORLD_IDS 의
-//    World는 아래 규약을 따릅니다(180deg = 위 하늘 → 아래 지면).
-//
-//      day    : 전체적으로 밝게. 위는 차가운 하늘빛, 아래는 밝은 지면.  textOn: dark
-//      golden : 중간 밝기 + 강한 warm(앰버·테라코타). 위가 밝고 아래가 깊어짐. textOn: dark
-//      night  : 전체적으로 어둡게. 위는 거의 검정, 아래에 도시 광원만 은은하게. textOn: light
-//
-//    같은 night 안에서는 **색상(hue)** 으로 구분합니다 (NEW YORK = 강철빛+붉은 글로우,
-//    SEOUL = 보라+마젠타 네온). 새 World를 활성화할 때 이 규약에 맞춰 잡아주세요.
-//    ⚠️ textOn 은 resolveWorld 의 컬러웨이 보정에 쓰이므로 색을 바꿀 때 함께 바꾸면
-//       매핑 결과가 달라집니다 (바꿀 때는 매핑 표를 다시 확인하세요).
-// -----------------------------------------------------------------------------
+// --- 3. World 목록 ---
+// ⚠️ gradient 와 gradientStops 는 같은 값으로 유지. textOn 을 바꾸면 매핑 결과가 달라집니다.
 export const WORLDS: Record<WorldId, WorldDef> = {
   paris_dawn: {
     id: "paris_dawn",
@@ -209,7 +158,6 @@ export const WORLDS: Record<WorldId, WorldDef> = {
     tagline: "안개 낀 새벽빛, 첫 만남의 설렘",
     timeOfDay: "day",
     sceneType: "culture",
-    // 한낮 — 차가운 하늘빛에서 밝은 석조 지면까지. 전체 고명도(안개 낀 대낮).
     gradient:
       "linear-gradient(180deg, #c9dcef 0%, #e4ecf3 40%, #f4efe6 72%, #e6d9c8 100%)",
     gradientAngle: 180,
@@ -219,7 +167,6 @@ export const WORLDS: Record<WorldId, WorldDef> = {
       { offset: 0.72, color: "#f4efe6" },
       { offset: 1, color: "#e6d9c8" },
     ],
-    bgm: "/bgm/paris_dawn.mp3",
     textOn: "dark",
   },
 
@@ -230,7 +177,6 @@ export const WORLDS: Record<WorldId, WorldDef> = {
     tagline: "도시의 밤, 강렬하게 존재하는 나",
     timeOfDay: "night",
     sceneType: "street",
-    // 밤 — 검은 하늘 → 강철빛 건물 → 아래쪽에 붉은 가로등 글로우(뉴욕 시그니처).
     gradient:
       "linear-gradient(180deg, #090c12 0%, #182130 42%, #33262a 74%, #7d2a23 100%)",
     gradientAngle: 180,
@@ -240,7 +186,6 @@ export const WORLDS: Record<WorldId, WorldDef> = {
       { offset: 0.74, color: "#33262a" },
       { offset: 1, color: "#7d2a23" },
     ],
-    bgm: "/bgm/newyork_attitude.mp3",
     textOn: "light",
   },
 
@@ -251,7 +196,6 @@ export const WORLDS: Record<WorldId, WorldDef> = {
     tagline: "나른한 오후 햇살, 우아한 여유",
     timeOfDay: "golden",
     sceneType: "leisure",
-    // 해 질 무렵 — 앰버 하늘에서 테라코타 지면까지. 밝지만 확실히 warm.
     gradient:
       "linear-gradient(180deg, #ffd79b 0%, #f8bd76 34%, #e79f61 68%, #c67a50 100%)",
     gradientAngle: 180,
@@ -261,7 +205,6 @@ export const WORLDS: Record<WorldId, WorldDef> = {
       { offset: 0.68, color: "#e79f61" },
       { offset: 1, color: "#c67a50" },
     ],
-    bgm: "/bgm/milano_terrace.mp3",
     textOn: "dark",
   },
   seoul_neon: {
@@ -271,7 +214,6 @@ export const WORLDS: Record<WorldId, WorldDef> = {
     tagline: "빠르게 뛰는 심장, 도시의 빛",
     timeOfDay: "night",
     sceneType: "culture",
-    // 밤 — 같은 night 인 NEW YORK 과 색상으로 구분합니다(보라 → 마젠타 네온).
     gradient:
       "linear-gradient(180deg, #0a0615 0%, #221345 44%, #55206f 76%, #9d2a68 100%)",
     gradientAngle: 180,
@@ -281,18 +223,17 @@ export const WORLDS: Record<WorldId, WorldDef> = {
       { offset: 0.76, color: "#55206f" },
       { offset: 1, color: "#9d2a68" },
     ],
-    bgm: "/bgm/seoul_neon.mp3",
     textOn: "light",
   },
 
 };
 
 /**
- * 이번 체험에서 실제로 사용할 World 목록.
+ * 이번 체험에서 실제로 사용할 World 목록 — 4종으로 확정.
  *
- * ⚠️ 임시값 — 회의에서 확정 예정입니다. **이 배열만 바꾸면** 결과 분포가 바뀝니다
- * (resolveWorld 가 하드코딩 테이블이 아니라 속성 매칭으로 동작하기 때문).
- * 배열 순서는 동점 시 우선순위로도 쓰이므로, 앞쪽에 둘 World가 더 자주 나옵니다.
+ * **이 배열만 바꾸면** 결과 분포가 바뀝니다 (resolveWorld 가 하드코딩 테이블이 아니라
+ * 속성 매칭으로 동작하기 때문). 배열 순서는 동점 시 우선순위로도 쓰이므로, 앞쪽에 둘
+ * World가 더 자주 나옵니다.
  */
 export const ACTIVE_WORLD_IDS: WorldId[] = [
   "newyork_attitude",
@@ -389,14 +330,7 @@ function flatLabel(label: string): string {
   return label.replace(/\n/g, " ");
 }
 
-/**
- * "왜 이 World인지" 문장을 만듭니다.
- *
- * ⚠️ 지금은 화면에 렌더링하지 않습니다(노출 위치 회의 후 결정). 로그/검증용으로만
- * 사용하세요. 한국어 조사(이/가, 을/를)가 라벨에 따라 틀어지므로 조사 없는
- * 나열형 템플릿을 씁니다.
- * 예) "여유 · 쇼핑·문화 즐기기 — NEW YORK, 해 질 무렵"
- */
+/** "왜 이 World인지" 문장 (로그/검증용, 화면 미노출). */
 export function buildWorldReason(
   mood: MoodKey,
   journey: JourneyKey,
@@ -450,38 +384,10 @@ export function debugMappingTable(): MappingTableRow[] {
   return rows;
 }
 
-// -----------------------------------------------------------------------------
-// 조합 전용 실사 배경 — (컬러웨이 × 무드 × 여행 스타일) → 배경 이미지
-//
-//    World 자체는 위 4번 규칙(속성 매칭)으로 고르지만, **실사 배경은 촬영본이 준비된
-//    조합 단위**로 붙습니다. 여기 등록된 조합만 실사 배경이 나가고, 나머지 조합은
-//    World 의 gradient(목업)가 그대로 쓰입니다.
-//
-//    무드 키 ↔ 04 MOOD 화면 라벨 (파일명 표기) — 무드는 AI가 판정합니다
-//      light = 설렘  (새로운 순간을 기대하는)  → sul
-//      calm  = 여유  (천천히 즐기고 싶은)      → calm
-//      bold  = 자신감(나답게 뽐내고 싶은)      → confidence
-//
-//    여행 스타일 키 ↔ 03 화면 라벨 (파일명 표기)
-//      explore = 도시 곳곳 둘러보기 → city
-//      culture = 쇼핑·문화 즐기기   → shop
-//      relax   = 여유롭게 쉬기      → relax
-//
-//    18조합(핑크·베이지 × 무드 3 × 여정 3)은 comboBackgroundImage() 가 파일명 토큰으로
-//    경로를 만듭니다. 각 조합은 버전 1·2 두 장(1=선택 카드, 2=촬영 배경)이 있으며,
-//    파일은 public/worlds/{색}/ 아래에 있습니다.
-// -----------------------------------------------------------------------------
+// --- 조합 전용 실사 배경 ---
+// comboBackgroundImage() → public/worlds/{색}/  (07 촬영 합성)
+// journeyCardImage()     → public/place/{색}/   (03 카드 미리보기)
 
-/**
- * `${컬러웨이}|${무드}|${여행}` → public 아래 배경 이미지 경로.
- *
- * 파일명 규약: /worlds/{색}/{색}_{무드}_{여정}{버전}.png
- *   무드 : light→sul(설렘) · calm→calm(여유) · bold→confidence(자신감)
- *   여정 : explore→city · culture→shop · relax→relax
- *   버전 : 조합마다 1·2 두 장이 있고, 기본은 1을 씁니다(2로 바꾸려면 끝 숫자만 변경).
- *
- * 18조합(핑크·베이지 × 무드 3 × 여정 3) 전량 등록. 파일이 없으면 gradient 로 폴백합니다.
- */
 // 내부 키 → 파일명 토큰.
 const MOOD_IMG_TOKEN: Record<MoodKey, string> = {
   light: "sul",
@@ -495,23 +401,31 @@ const JOURNEY_IMG_TOKEN: Record<JourneyKey, string> = {
   relax: "relax",
 };
 
-/**
- * 조합에 맞는 실사 배경 경로.
- *
- * variant 1 = 03 활동 선택 카드용, variant 2 = 07 촬영 합성 배경용
- * (같은 조합이라도 카드와 촬영 배경에 다른 컷을 씁니다). 기본값은 카드용 1.
- * 선택값이 하나라도 없으면 undefined 를 돌려줘 gradient 로 폴백합니다.
- *
- * 파일 규약: /worlds/{색}/{색}_{무드토큰}_{여정토큰}{버전}.png
- */
+/** 07 촬영 합성 배경 경로 — /worlds/{색}/{색}_{무드}_{여정}2.png */
 export function comboBackgroundImage(
   colorway: ColorwayKey | null,
   answers: Answers,
-  variant: 1 | 2 = 1
+  variant: 1 | 2 = 2
 ): string | undefined {
   const { mood, journey } = answers;
   if (!colorway || !mood || !journey) return undefined;
   return `/worlds/${colorway}/${colorway}_${MOOD_IMG_TOKEN[mood]}_${JOURNEY_IMG_TOKEN[journey]}${variant}.png`;
+}
+
+// ⚠️ relax 의 파일명이 무드 토큰과 같은 "calm" 이지만 여기선 여정을 가리킵니다.
+const JOURNEY_PLACE_TOKEN: Record<JourneyKey, string> = {
+  explore: "city",
+  culture: "shop",
+  relax: "calm",
+};
+
+/** 03 활동 선택 카드 미리보기 경로 — /place/{색}/{색}_{여정토큰}.png */
+export function journeyCardImage(
+  colorway: ColorwayKey | null,
+  journey: JourneyKey
+): string | undefined {
+  if (!colorway) return undefined;
+  return `/place/${colorway}/${colorway}_${JOURNEY_PLACE_TOKEN[journey]}.png`;
 }
 
 /**
@@ -584,18 +498,12 @@ export const MOOD_ANALYSIS_CONFIG = {
   pastelMinLum: 0.75,
   pastelMinChroma: 0.15,
   vividMinChroma: 0.6,
-  /** 서버 라우트 응답을 기다리는 시간. 넘으면 로컬 폴백으로 내려갑니다. */
-  timeoutMs: 12_000,
   /**
-   * 결과 카드를 자동으로 넘기기까지의 시간(ms).
-   *
-   * 이 시간 안에는 손님이 [다음]을 눌러 직접 넘길 수 있고, 넘기지 않으면 자동으로
-   * 05 프리로드로 이동합니다. 부스에 손님이 서 있다가 그냥 가버려도 다음 손님을
-   * 위해 화면이 멈춰 있지 않게 하는 안전장치입니다.
-   * 컬러 칩·무드·한 줄 코멘트를 읽는 데 필요한 시간 기준이라, 코멘트를 길게 바꾸면
-   * 이 값도 함께 늘려주세요. 남은 시간은 [다음] 아래 진행 바로 보입니다.
+   * 서버 라우트 응답을 기다리는 시간. 넘으면 로컬 폴백으로 내려갑니다.
+   * 서버 쪽 TIMEOUT_MS(app/api/analyze-mood/route.ts)와 항상 같이 맞추세요 —
+   * 이 값이 더 짧으면 서버가 응답하기도 전에 폴백으로 떨어집니다.
    */
-  resultAutoAdvanceMs: 6_000,
+  timeoutMs: 12_000,
 } as const;
 
 // -----------------------------------------------------------------------------
@@ -624,45 +532,79 @@ export const SEGMENTATION_CONFIG = {
 } as const;
 
 // -----------------------------------------------------------------------------
-// 7-1. 인물 분리 방식 — 지금은 세그멘테이션, 부스 제작 시 그린 스크린 크로마키
+// 7-1. 인물 분리 방식 — 기본은 그린 스크린 크로마키, 세그멘테이션은 폴백
 //
-// 실측된 현상: 인물이 움직이면 경계가 미세하게 흔들리고 그 틈으로 **실제 배경이
-// 살짝 비칩니다.** SelfieSegmentation 이 프레임마다 마스크를 새로 추정하기 때문에
-// 생기는 구조적 한계라, featherPx 로 완화만 되고 원인은 남습니다.
+// 세그멘테이션의 한계: 인물이 움직이면 경계가 미세하게 흔들리고 그 틈으로 **실제
+// 배경이 살짝 비칩니다.** SelfieSegmentation 이 프레임마다 마스크를 새로 추정하기
+// 때문에 생기는 구조적 한계라, featherPx 로 완화만 되고 원인은 남습니다.
+// 인물 전용 모델이라 손에 든 가방·가는 스트랩도 배경으로 잘려나갑니다.
 //
-// → 부스를 제작할 때 뒤에 **그린 스크린**을 세우고 색상 키잉으로 교체할 예정입니다.
-//   색이라는 고정 기준으로 자르면 매 프레임 같은 판정이 나와 경계가 흔들리지 않습니다.
+// → 그린 스크린 + 색상 키잉은 **색이라는 고정 기준**으로 자르므로 매 프레임 같은
+//   판정이 나와 경계가 흔들리지 않고, 스트랩도 살아납니다. (lib/chromaKey.ts)
 //
-// ⚠️ mode: "chromakey" 는 **아직 구현되지 않았습니다.** 값을 바꿔도 지금은
-//    세그멘테이션으로 계속 동작하고 콘솔 경고만 남습니다(부스에서 화면이 죽는 것이
-//    최악이므로 의도적으로 폴백). 구현할 때 손볼 파일과 순서는
-//    README "다음 단계: 그린 스크린 크로마키" 에 정리해뒀습니다.
+// ⚠️ chromakey 는 **그린 스크린이 없으면 화면이 통째로 지워집니다.** 천이 없는
+//    개발 PC 에서는 URL 에 `?matting=segmentation` 을 붙여 예전 방식으로 보세요.
+//    WebGL 을 못 얻는 환경에서는 자동으로 세그멘테이션으로 내려갑니다
+//    (부스에서 화면이 죽는 것이 최악이므로 — components/MirrorStage.tsx).
 // -----------------------------------------------------------------------------
 export const MATTING_CONFIG = {
-  mode: "segmentation" as MattingMode,
-  /** mode: "chromakey" 로 전환할 때 쓸 값들 (OBS 크로마키와 같은 의미). */
+  mode: "chromakey" as MattingMode,
+  /**
+   * 크로마키 파라미터. **부스 조명을 잡은 뒤 `/calibrate` 에서 실측한 값으로
+   * 교체하세요.** 아래는 실측 전 자리표시자입니다.
+   */
   chromaKey: {
-    /** 그린 스크린 원단 색. 부스 조명 아래서 실측한 값으로 교체하세요. */
+    /** 그린 스크린 원단 색. 크로마 그린 표준값이며, 실측값으로 바꿔야 합니다. */
     keyColor: "#00b140",
-    /** 배경으로 간주할 색 거리 (0~1). 높이면 더 많이 지웁니다. */
-    similarity: 0.4,
-    /** 경계 부드러움 (0~1). 세그멘테이션의 featherPx 와 같은 역할. */
+    /**
+     * 배경으로 간주할 **CbCr 색 거리 상한** (0~1). 높이면 더 많이 지웁니다.
+     *
+     * ⚠️ 눈금 감각을 잡아두세요 — 무채색(흰색·회색·검정)은 키 컬러에서 약 0.33,
+     *    살색은 약 0.42 떨어져 있습니다. **0.3 을 넘기면 사람까지 지워집니다.**
+     *    실용 범위는 0.05~0.30.
+     */
+    similarity: 0.18,
+    /** 경계가 알파 0→1 로 넘어가는 폭(같은 거리 단위). featherPx 와 같은 역할. */
     smoothness: 0.08,
-    /** 인물에 반사된 초록빛(스필) 제거 강도 (0~1). */
-    spill: 0.1,
+    /**
+     * 매트를 안쪽으로 깎는 정도 (0~1). 0 = 끔.
+     *
+     * **반투명한** 경계 픽셀(머리카락, 움직임 블러)을 잘라냅니다. 몸 윤곽의 초록
+     * 테두리에는 효과가 없습니다 — 그건 불투명한 픽셀이라 아래 spill 담당입니다.
+     * 올리면 머리카락이 얇아지므로 필요할 때만 조금씩 (권장 0~0.3).
+     */
+    edgeShrink: 0.1,
+    /**
+     * 인물에 반사된 초록빛(스필) 제거 강도 (0~1).
+     * **몸 윤곽에 초록 테두리가 보이면 이 값을 올리세요 — 그게 유일한 해결 노브입니다.**
+     *
+     * 스크린에서 튄 초록빛은 인물 몸에 실제로 얹힌 색이라 매트(알파)로는 지워지지
+     * 않습니다. 1.0 = 초록기를 r/b 평균까지 완전히 눌러 테두리를 없앱니다.
+     *
+     * ⚠️ `min(g, (r+b)/2)` 가드 덕분에 초록기가 없는 색은 손대지 않습니다 — 실측 결과
+     *    피부 0~2, 핑크 0, 베이지 6, 흰색·검정·데님·빨강 0 만큼만 변합니다. 대신
+     *    **카키·올리브 의상은 눈에 띄게 탁해지므로**(약 30) 그럴 땐 0.6 정도로 낮추세요.
+     */
+    spill: 1.0,
   },
 } as const;
 
 // -----------------------------------------------------------------------------
-// 8. Ripple 전환 설정
-//    stepMs: 02→03, 03→04 중간 전환 (퍼지면서 사라짐)
-//    finalMs: 04→05 화면 전체를 덮는 전환
-//    color: 05 배경(paper)과 동일해야 이음매 없이 이어집니다
+// 8. Ripple 전환 설정 — 02→03, 03→04 전환에만 씁니다 (퍼지면서 사라짐).
+//    나머지 화면 전환은 FadeStep 크로스페이드입니다.
+//    color 는 전환 중 배경과 크게 다르지 않아야 튀지 않습니다.
 // -----------------------------------------------------------------------------
 export const RIPPLE_CONFIG = {
-  stepMs: 420,
-  finalMs: 700,
+  // 02→03, 03→04 전환 속도. 더 늦추려면 이 값만 올리세요.
+  stepMs: 1800,
   color: "#faf8f5",
+
+  /**
+   * 03 카드 선택 시 고른 사진이 확대되고 나머지 두 장은 옅어집니다.
+   * 지속 시간은 stepMs 를 그대로 써서 화면 전환과 항상 같이 움직입니다.
+   */
+  journeySelectZoomScale: 1.15,
+  journeySelectDimOpacity: 0.25,
 
   /**
    * 선택지에 마우스를 올렸을 때 **버튼 정중앙에서** 퍼지는 물결.
@@ -672,10 +614,23 @@ export const RIPPLE_CONFIG = {
    * ⚠️ 커서를 따라 퍼지게 하면 마우스를 움직일 때마다 시작점이 튀어 글자가 읽기
    *    힘들어집니다. 중앙 고정 + 느린 속도가 카피 가독성에 유리합니다.
    */
-  hoverMs: 1800,
-  hoverRepeatMs: 1100,
+  hoverMs: 3000,
+  hoverRepeatMs: 1800,
   hoverColor: "#b08d57",
   hoverOpacity: 0.26,
+
+  /**
+   * 02 제품 카드는 물결 색으로 그 카드의 컬러웨이 색(colorway.hex)을 씁니다.
+   * 파스텔 톤이라 기본 hoverOpacity(0.26)로는 흰 카드 위에서 거의 안 보입니다.
+   */
+  hoverProductOpacity: 0.5,
+
+  /**
+   * 물결이 흐려지는 곡선 (퍼지는 곡선 ease-out 과 분리돼 있습니다).
+   * ease-in 이 가장 진하고, linear · ease-out 순으로 옅어집니다.
+   * 더 진하게 하려면 cubic-bezier(0.8, 0, 0.9, 1) 처럼 뒤로 미세요.
+   */
+  hoverFadeEasing: "ease-in",
 
   /**
    * OS 의 "동작 줄이기(prefers-reduced-motion)" 설정을 따를지.
@@ -690,11 +645,7 @@ export const RIPPLE_CONFIG = {
 } as const;
 
 // -----------------------------------------------------------------------------
-// 9. BGM 설정 — 음원은 public/bgm/{worldId}.mp3 규약으로 넣어주세요.
-//    파일이 없으면 콘솔 경고만 남기고 무음으로 동작합니다.
-// -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
-// 10. 촬영 결과 업로드 설정
+// 9. 촬영 결과 업로드 설정
 //
 //    부스 WiFi 가 불안정할 수 있으므로 요청에 타임아웃을 걸고, 백엔드의 10MB 제한
 //    (multipart max-file-size)에 걸려 413 이 나지 않도록 미리 줄여서 보냅니다.
@@ -719,7 +670,16 @@ export const UPLOAD_CONFIG = {
 } as const;
 
 // -----------------------------------------------------------------------------
+// 10. BGM 설정 — World 별이 아니라 **체험 전체가 한 곡**을 공유합니다.
+//     06 리빌에서 재생을 시작해 08 QR 에서 멈춥니다.
+//     파일이 없으면 콘솔 경고만 남기고 무음으로 정상 동작합니다.
+// -----------------------------------------------------------------------------
 export const BGM_CONFIG = {
+  /**
+   * ⚠️ 파일명에 공백이 있어 %20 으로 인코딩해 뒀습니다. 곡을 바꿀 때도 공백은
+   *    인코딩하거나, 아예 공백 없는 이름으로 저장하세요.
+   */
+  src: "/bgm/Golden%20Hour%20Lounge.mp3",
   volume: 0.5,
   fadeInMs: 1200,
   fadeOutMs: 600,

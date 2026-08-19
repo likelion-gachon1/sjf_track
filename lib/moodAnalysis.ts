@@ -1,36 +1,16 @@
-// =============================================================================
 // AI 무드 분석 — 카메라 프레임 → 무드(설렘 / 여유 / 자신감)
-// -----------------------------------------------------------------------------
-// 04 MOOD 화면에서 씁니다. 사용자가 무드를 고르는 대신, 입고 온 옷의 명도·채도를
-// 읽어 무드를 정합니다.
-//
-//   1) captureAnalysisFrame  : <video> 현재 프레임을 작은 JPEG dataURL 로
-//   2) requestMoodAnalysis   : /api/analyze-mood (OpenAI Vision) 로 판정 요청
-//   3) analyzeMoodLocally    : 실패 시 캔버스 픽셀만으로 판정하는 결정적 폴백
-//
-// 여권(lib/passport.ts)과 같은 규약입니다 — **어떤 실패에도 throw 하지 않고**
-// 항상 완전한 결과를 돌려주므로 부스 화면이 멈추지 않습니다.
-//
-// ⚠️ 분석용 프레임은 메모리에만 존재합니다. 백엔드(/api/v1/sessions)로 올라가는
-//    사진은 07에서 찍은 합성 결과뿐이고, 이 프레임은 판정 직후 버려집니다.
-// =============================================================================
+// 실패 시 로컬 색 분석 폴백으로 자동 대체 — throw 하지 않습니다.
 
-import { MOOD_ANALYSIS_CONFIG } from "@/config/portal.config";
+import { MATTING_CONFIG, MOOD_ANALYSIS_CONFIG } from "@/config/portal.config";
+import { cbCrDistanceToKey, keyColorToCbCr } from "@/lib/chromaKey";
+import { resolveMattingMode } from "@/lib/matting";
 import type { MoodAnalysis, MoodKey, MoodLevel } from "@/lib/types";
 
 // -----------------------------------------------------------------------------
 // 1. 프레임 캡처
 // -----------------------------------------------------------------------------
 
-/**
- * <video> 의 현재 프레임을 분석용 JPEG dataURL 로 만듭니다.
- *
- * 카메라 원본(1280×720)을 그대로 보내면 전송량과 토큰만 커지므로
- * `MOOD_ANALYSIS_CONFIG.captureWidth` 로 줄입니다. 좌우 반전은 하지 않습니다 —
- * 색만 보기 때문에 의미가 없고, 07 합성과 달리 사람에게 보여줄 이미지도 아닙니다.
- *
- * 아직 첫 프레임이 안 들어왔으면 null 을 돌려줍니다.
- */
+/** <video> 현재 프레임을 분석용 JPEG dataURL 로 캡처. 첫 프레임 전이면 null. */
 export function captureAnalysisFrame(video: HTMLVideoElement): string | null {
   const sourceWidth = video.videoWidth;
   const sourceHeight = video.videoHeight;
@@ -53,15 +33,9 @@ export function captureAnalysisFrame(video: HTMLVideoElement): string | null {
 // -----------------------------------------------------------------------------
 
 /**
- * 0~255 RGB → 판정에 쓸 세 값 (전부 0~1, h 만 0~360).
- *
- * ⚠️ 명도·채도를 **HSL 로 재지 않습니다.** HSL 은 이 용도에 두 가지 함정이 있습니다.
- *   - L 은 채도가 높을수록 0.5 로 눌립니다. 비비드 옐로우(#ffd400)의 L 이 0.50 이라
- *     "밝은 옷"인데도 고명도 판정을 통과하지 못합니다.
- *   - S 는 밝은 저채도 색에서 부풀려집니다. 베이지(#d8c9ad)의 HSL S 가 0.36 이나 돼
- *     "화사한 포인트 컬러"로 오인됩니다.
- * 그래서 밝기는 **눈이 느끼는 밝기(perceived luminance)**, 채도는 **max 대비 순색도
- * (HSV 방식 delta/max)** 로 잽니다. 베이지는 chroma 0.20, 비비드 핑크는 0.65 로 갈립니다.
+ * 0~255 RGB → 판정에 쓸 세 값.
+ * 밝기: BT.601 체감 밝기(HSL L은 고채도에서 0.5로 눌림).
+ * 채도: delta/max 순색도(HSL S는 밝은 저채도에서 부풀려짐).
  */
 function rgbToTone(r: number, g: number, b: number): { h: number; chroma: number; lum: number } {
   const rn = r / 255;
@@ -124,19 +98,7 @@ const EARTH_HUE_MIN = 20;
 const EARTH_HUE_MAX = 70;
 
 /**
- * 색 → 무드. 스펙의 분류 기준을 **순서대로** 적용합니다 (순서가 곧 우선순위).
- *
- *   1. 어두움          → 자신감(bold) : 블랙·딥네이비·차콜·다크브라운
- *   2. 웜톤 어스톤     → 여유(calm)   : 베이지·아이보리·카키·올리브
- *   3. 파스텔 or 비비드 → 설렘(light)  : 화사한 파스텔 / 채도 높은 포인트 컬러
- *   4. 나머지          → 여유(calm)   : 소프트 그레이·데님 같은 중간 톤
- *
- * 2번이 3번보다 먼저인 게 핵심입니다. 베이지는 **밝지만** 여유여야 하므로, 밝기를
- * 보는 3번이 먼저 걸리면 안 됩니다. 다만 비비드 옐로우·오렌지처럼 같은 색상대라도
- * 순색도가 아주 높으면(earthMaxChroma 초과) 어스톤이 아니라 포인트 컬러로 봅니다.
- *
- * 3번의 두 갈래는 **OR** 입니다 — 파스텔은 밝지만 순색도가 낮고, 비비드 블루는
- * 순색도가 높지만 파랑이라 어둡게 느껴져서, AND 로 묶으면 둘 다 빠집니다.
+ * 색 → 무드. 판정 순서: ① 어두움→자신감, ② 웜톤 어스톤→여유, ③ 파스텔|비비드→설렘, ④ 나머지→여유
  */
 function classify(h: number, chroma: number, lum: number): MoodKey {
   const cfg = MOOD_ANALYSIS_CONFIG;
@@ -170,11 +132,46 @@ function loadImage(dataUrl: string): Promise<HTMLImageElement> {
 }
 
 /**
+ * 크로마키 모드에서 그린 스크린 픽셀을 걸러내기 위한 키 색상.
+ * 크로마키 모드가 아니면 null(가드 끔).
+ */
+function greenGuard(): { key: [number, number]; threshold: number } | null {
+  if (resolveMattingMode() !== "chromakey") return null;
+  const { keyColor, similarity, smoothness } = MATTING_CONFIG.chromaKey;
+  return { key: keyColorToCbCr(keyColor), threshold: similarity + smoothness };
+}
+
+function averageColor(
+  pixels: Uint8ClampedArray,
+  stride: number,
+  guard: { key: [number, number]; threshold: number } | null
+): { r: number; g: number; b: number; count: number } {
+  let rSum = 0;
+  let gSum = 0;
+  let bSum = 0;
+  let count = 0;
+  for (let i = 0; i < pixels.length; i += stride) {
+    const r = pixels[i];
+    const g = pixels[i + 1];
+    const b = pixels[i + 2];
+    if (guard && cbCrDistanceToKey(r, g, b, guard.key) < guard.threshold) continue;
+    rSum += r;
+    gSum += g;
+    bSum += b;
+    count += 1;
+  }
+  if (count === 0) return { r: 0, g: 0, b: 0, count: 0 };
+  return { r: rSum / count, g: gSum / count, b: bSum / count, count };
+}
+
+/**
  * 캔버스 픽셀만으로 무드를 판정합니다 (AI 실패 시 폴백).
  *
  * 프레임 전체가 아니라 `MOOD_ANALYSIS_CONFIG.sampleRegion` 영역 — 화면 가운데
  * 아래쪽, 즉 상의가 오는 자리 — 만 봅니다. 얼굴·머리카락·뒷배경이 섞이면 평균이
  * 흐려지기 때문입니다. 같은 사진은 항상 같은 결과가 나옵니다(난수 없음).
+ *
+ * 크로마키 모드에서는 그 위에 **그린 스크린 가드**가 한 겹 더 붙습니다(greenGuard).
  */
 export async function analyzeMoodLocally(dataUrl: string): Promise<MoodAnalysis> {
   const img = await loadImage(dataUrl);
@@ -202,21 +199,17 @@ export async function analyzeMoodLocally(dataUrl: string): Promise<MoodAnalysis>
 
   // 4픽셀 간격으로 샘플링 — 정확도는 그대로면서 큰 프레임에서도 즉시 끝납니다.
   const stride = 4 * 4;
-  let rSum = 0;
-  let gSum = 0;
-  let bSum = 0;
-  let count = 0;
-  for (let i = 0; i < pixels.length; i += stride) {
-    rSum += pixels[i];
-    gSum += pixels[i + 1];
-    bSum += pixels[i + 2];
-    count += 1;
-  }
-  if (count === 0) return neutralMoodAnalysis();
 
-  const r = rSum / count;
-  const g = gSum / count;
-  const b = bSum / count;
+  // 1차: 그린 스크린 픽셀을 뺀 평균.
+  let avg = averageColor(pixels, stride, greenGuard());
+  // 남은 표본이 너무 적으면(손님이 프레임 밖이거나 초록 옷을 입은 경우) 가드를 풀고
+  // 예전처럼 전체 평균을 씁니다 — 판정이 이상해질지언정 **실패하지는 않습니다.**
+  if (avg.count < Math.ceil(pixels.length / stride / 5)) {
+    avg = averageColor(pixels, stride, null);
+  }
+  if (avg.count === 0) return neutralMoodAnalysis();
+
+  const { r, g, b } = avg;
   const { h, chroma, lum } = rgbToTone(r, g, b);
 
   const mood = classify(h, chroma, lum);

@@ -45,18 +45,19 @@
 ```ts
 export type StepId =
   | "intro"      // 01 START
-  | "product"    // 02 PRODUCT   (01/03)
-  | "mood"       // 03 MOOD      (02/03)
-  | "journey"    // 04 TRAVEL STYLE (03/03)
+  | "product"    // 02 PRODUCT       (01/03)
+  | "journey"    // 03 TRAVEL STYLE  (02/03)
+  | "mood"       // 04 MOOD          (03/03) — AI 무드 분석으로 대체됨(1-4 참고)
   | "opening"    // 05 PORTAL OPENING (프리로드 구간)
   | "reveal"     // 06 WORLD REVEAL
   | "experience" // 07 EXPERIENCE
-  | "handoff";   // QR HANDOFF
+  | "moment"     // 09 YOUR MCM MOMENT (촬영 사진 확인) — 이후 단계에서 추가됨
+  | "handoff";   // 08 QR HANDOFF
 ```
 
 - `MoodKey` 를 `"light" | "calm" | "bold"` 로 **교체** (기존 4종 폐기)
 - `JourneyKey = "explore" | "culture" | "relax"` **신설**
-- `ColorKey` **삭제**, 대신 `ColorwayKey = "pink" | "black"` 신설
+- `ColorKey` **삭제**, 대신 `ColorwayKey = "pink" | "beige"` 신설
 - **World 결정 축 신설** (수정안 3절 "각 선택값의 역할" 표를 데이터로 구현)
   ```ts
   export type TimeOfDay = "day" | "golden" | "night";   // 분위기가 반영되는 축
@@ -95,6 +96,10 @@ export type StepId =
     textOn: "light" | "dark";
   }
   ```
+
+  > ⚠️ **이후 변경됨:** `bgm` 필드는 삭제되고 `BGM_CONFIG.src` 하나로 체험 전체가 한 곡을
+  > 공유하는 방식으로 바뀌었습니다. `gradientAngle?: number` / `gradientStops: GradientStop[]`
+  > (07 캔버스 합성용)도 추가됐습니다. 현재 정의는 `lib/types.ts` 의 `WorldDef` 를 보세요.
 - `SavedMoment` 에 `imageDataUrl: string` 추가
 
 ### 1-2. `lib/FlowContext.tsx`
@@ -124,17 +129,23 @@ export type StepId =
 |---|---|
 | `SET_CONSENT` | — |
 | `START` | consent 없으면 무시, `intro → product`, `sessionId` 발급 |
-| `SELECT_PRODUCT { productId, colorwayKey }` | `product → mood` |
-| `ANSWER_MOOD { value }` | `mood → journey` |
-| `ANSWER_JOURNEY { value }` | `journey → opening` (수정안: 선택과 동시에 이동) |
+| `SELECT_PRODUCT { productId, colorwayKey }` | `product → journey` |
+| `ANSWER_JOURNEY { value }` | `journey → mood` (수정안: 선택과 동시에 이동) |
+| `ANSWER_MOOD { value }` | `mood → journey` — **이후 폐기.** 04 무드는 버튼 선택이 아니라 AI 판정으로 바뀌어 `ANALYZE_MOOD { result }` (`mood → opening`)로 대체됨 |
 | `RESOLVE_WORLD { worldId }` | `opening → reveal`. 05 프리로드 완료 시 dispatch |
 | `ENTER_PORTAL` | `reveal → experience` |
-| `CAPTURE { dataUrl }` | `experience → handoff`, `capturedImage`/`capturedAt` 세팅 + `savedMoments` 에 push |
+| `CAPTURE { dataUrl }` | `experience → moment` — **이후 변경.** 09 MOMENT(사진 확인) 화면이 추가되며 `handoff` 대신 `moment` 로 전환 |
+| `SHOW_QR` | `moment → handoff` — 이후 추가된 액션 |
 | `TOGGLE_BGM_MUTE` | — |
-| `SAVE_PRODUCT_INTEREST` | — |
+| `SAVE_PRODUCT_INTEREST` | — **이후 폐기.** 관심 제품 저장은 모바일(`/m/{sessionId}/shop`)로 이동해 부스 리듀서 액션이 아니게 됨 |
+| `SET_SESSION_SHARE { url, expiresAt }` | — 이후 추가된 액션. 백엔드 업로드 응답(`shareUrl`/`expiresAt`)을 저장 |
 | `RESET` | `savedMoments` 만 유지하고 나머지 초기화 (현재 동작 유지) |
 
 `CHANGE_WORLD` 액션은 **삭제하지 말고 그대로 남길 것** (회의 결과에 따라 되살림). 사용처가 없어도 됩니다.
+
+> ⚠️ **이후 변경됨:** 위 표는 이번 작업(Step 3) 시점 기준입니다. 현재 액션·전환 로직은
+> `lib/FlowContext.tsx` 의 `flowReducer` 를 보세요 (`moodAnalysis`/`shareUrl`/`expiresAt` 필드,
+> `ANALYZE_MOOD`/`SHOW_QR`/`SET_SESSION_SHARE` 액션이 이후 추가됐습니다).
 
 ---
 
@@ -152,7 +163,7 @@ export const PRODUCTS: Product[] = [
     line: "in Visetos",
     colorways: [
       { key: "pink",  label: "PINK",  hex: "#e3c9d3" },
-      { key: "black", label: "BLACK", hex: "#1c1c1c" },
+      { key: "beige", label: "BEIGE", hex: "#c9b79c" },
     ],
   },
 ];
@@ -164,6 +175,10 @@ export const PRODUCT_CHOICES = PRODUCTS.flatMap((p) =>
 ```
 
 `image`가 없으면 `hex` 기반 단색 플레이스홀더 박스를 그리세요 (제품 사진 에셋은 아직 없음).
+
+> ⚠️ **이후 변경됨:** 두 번째 컬러웨이 키는 `black` 이 아니라 `beige` 로 확정됐습니다
+> (컬러웨이 톤 보정 로직도 `beige`+어두운 World 기준입니다 — 2-3절 참고). 실제 제품 데이터는
+> 이름·가격·`storeUrl` 이 채워진 상태로 `config/products.config.ts` 에 있습니다.
 
 **제품의 포인트 컬러 역할** — 수정안 3절에 따라 `colorway.hex` 를 02 카드 외에
 **06 리빌의 CTA 버튼 테두리**와 **QR 화면의 포인트 색**에 사용하세요.
@@ -179,6 +194,8 @@ export const PRODUCT_CHOICES = PRODUCTS.flatMap((p) =>
 - `startButton`: `"시작하기"`
 - `productHeading`: `"어떤 MCM과 함께 떠날까요?"` / `productSubline`: `"원하는 제품을 선택해주세요."`
 - `moodHeading`: `"이번 여행은 어떤 느낌이었으면 좋겠나요?"` / `moodSubline`: `"원하는 분위기를 선택해주세요."`
+  (⚠️ 이후 04 무드는 버튼 선택이 아니라 AI 촬영 판정으로 바뀌면서 문구도
+  `"오늘의 스타일을 보여주세요."` 로 교체됐습니다 — `config/portal.config.ts` 의 `COPY` 참고)
 - `journeyHeading`: `"여행지에서 가장 하고 싶은 건?"` / `journeySubline`: `"원하는 여행 스타일을 선택해주세요."`
 - `journeyFootnote`: `"선택과 동시에 다음 단계로 이동합니다."`
 - `openingMessage`: `"당신에게 어울리는\nWorld를 찾고 있습니다."`
@@ -213,6 +230,12 @@ export const JOURNEY_QUESTION: QuestionDef<JourneyKey> = {
 };
 ```
 
+> ⚠️ **이후 변경됨:** `MOOD_QUESTION` 은 더 이상 버튼으로 렌더링되지 않습니다 — 무드는
+> 04에서 AI가 촬영 의상을 보고 판정합니다. `key`(`light`/`calm`/`bold`)는 그대로 쓰이지만
+> `label` 은 결과 화면·여권 카피 라벨용으로 `"EXCITEMENT"`/`"RELAXATION"`/`"CONFIDENCE"` 로
+> 바뀌었습니다. `JOURNEY_QUESTION` 은 그대로 버튼 선택입니다. 현재 값은
+> `config/portal.config.ts` 참고.
+
 **World 정의** — 기존 8개에 `displayName` / `timeOfDay` / `sceneType` / `bgm` 을 채우고,
 활성 목록만 분리합니다 (회의 후 이 배열만 교체):
 
@@ -231,12 +254,15 @@ export const ACTIVE_WORLD_IDS: WorldId[] = [
 | `paris_dawn` | PARIS | day | culture |
 | `milano_terrace` | MILANO | golden | leisure |
 | `seoul_neon` | SEOUL | night | culture |
-| `monaco_night` | MONACO | night | leisure |
-| `tokyo_mirage` | TOKYO | night | street |
-| `ibiza_sunset` | IBIZA | golden | leisure |
-| `santorini_breeze` | SANTORINI | day | leisure |
 
 `backgroundImage` 는 전부 미지정(gradient 폴백), `bgm` 은 `/bgm/{id}.mp3` 로 채워둡니다(파일은 없어도 됨).
+
+> ⚠️ **이후 변경됨:** `monaco_night` / `tokyo_mirage` / `ibiza_sunset` / `santorini_breeze`
+> 4개는 회의에서 채택되지 않아 **`WorldId` 타입에서 삭제됐습니다** — 현재 `WorldId` 는
+> 위 4개뿐입니다. 위 4개의 축 배정(timeOfDay/sceneType)은 지금도 그대로 유효합니다.
+> `bgm` 필드는 폐기되고 `BGM_CONFIG.src` 한 곡 공유 방식으로, `backgroundImage` 는 조합별
+> 실사 배경(`comboBackgroundImage()`)이 채워졌습니다. 현재 값은 `config/portal.config.ts` 의
+> `WORLDS` 참고.
 
 ### 2-3. World 결정 로직 — **하드코딩 테이블을 쓰지 마세요**
 
@@ -264,7 +290,7 @@ export const JOURNEY_TO_SCENE: Record<JourneyKey, SceneType[]> = {
 1. `ACTIVE_WORLD_IDS` 의 World 각각에 점수를 매긴다
    - `timeOfDay` 가 `MOOD_TO_TIME[mood][0]` 이면 **+3**, `[1]` 이면 **+1**, 아니면 0
    - `sceneType` 이 `JOURNEY_TO_SCENE[journey][0]` 이면 **+3**, `[1]` 이면 **+1**, 아니면 0
-   - 컬러웨이 보정: `black` + `textOn === "light"`(어두운 World) 이면 **+1**,
+   - 컬러웨이 보정: `beige` + `textOn === "light"`(어두운 World) 이면 **+1**,
      `pink` + `textOn === "dark"`(밝은 World) 이면 **+1**
 2. 최고점을 반환한다
 3. **동점이면 `ACTIVE_WORLD_IDS` 배열 순서상 앞선 것** — 난수를 쓰지 말 것.
@@ -321,6 +347,11 @@ export const BGM_CONFIG = {
 ```
 
 `CAMERA_CONFIG` 는 그대로 유지합니다 (`mirror: true` 포함).
+
+> ⚠️ **이후 변경됨:** `RIPPLE_CONFIG.finalMs` 는 삭제됐습니다 — 03(TRAVEL STYLE)이 04(MOOD, AI
+> 촬영 화면)로 바뀌며 "화면을 덮는 최종 전환"이 없어졌고, ripple 은 이제 02→03·03→04
+> 두 곳 모두 `stepMs`(현재 1800ms) 하나만 씁니다. `BGM_CONFIG` 에는 `src`(공유 음원 경로)가
+> 추가됐습니다. 현재 값은 `config/portal.config.ts` 참고.
 
 ---
 

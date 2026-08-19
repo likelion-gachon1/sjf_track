@@ -20,8 +20,7 @@ function PortalScreens() {
   const { state } = usePortalFlow();
 
   return (
-    // 05는 ripple 이 전환을 담당하므로 fadeIn 을 끕니다 (두 연출이 겹치지 않게).
-    <FadeStep key={state.step} disabled={state.step === "opening"}>
+    <FadeStep key={state.step}>
       {state.step === "intro" && <StepIntro />}
       {state.step === "product" && <StepProduct />}
       {state.step === "journey" && <StepJourney />}

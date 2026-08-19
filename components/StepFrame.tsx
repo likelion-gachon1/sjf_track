@@ -30,12 +30,12 @@ export default function StepFrame({
     >
       <ProgressDots current={stepNumber} total={totalSteps} />
 
-      <h2 className="mt-10 font-sans text-4xl font-bold leading-snug text-ink">{heading}</h2>
-      {subline && <p className="mt-4 text-sm text-ink/50">{subline}</p>}
+      <h2 className="mt-10 font-sans text-4xl font-extrabold leading-snug text-ink">{heading}</h2>
+      {subline && <p className="mt-4 text-sm text-ink/80">{subline}</p>}
 
       <div className="mt-14 flex w-full max-w-5xl flex-col items-center">{children}</div>
 
-      {footnote && <p className="absolute bottom-12 text-xs text-ink/35">{footnote}</p>}
+      {footnote && <p className="absolute bottom-12 text-xs text-ink/65">{footnote}</p>}
     </div>
   );
 }

@@ -96,7 +96,7 @@ export default function StepMoment() {
 
   return (
     <div className="flex h-full min-h-screen flex-col items-center justify-center bg-paper px-8 py-10 text-center">
-      <p className="text-xs tracking-widest2 text-ink/45">{COPY.momentEyebrow}</p>
+      <p className="text-xs tracking-widest2 text-ink/75">{COPY.momentEyebrow}</p>
 
       <div className="mt-6 flex flex-col items-center gap-8 lg:flex-row lg:items-stretch lg:gap-10">
         {/* 촬영 사진 */}
@@ -112,7 +112,7 @@ export default function StepMoment() {
               className="block max-h-[62vh] w-auto max-w-[46vw] object-contain"
             />
           ) : (
-            <div className="flex h-[46vh] w-[46vw] max-w-2xl items-center justify-center text-sm text-ink/30">
+            <div className="flex h-[46vh] w-[46vw] max-w-2xl items-center justify-center text-sm text-ink/60">
               사진을 불러오는 중...
             </div>
           )}
@@ -122,12 +122,12 @@ export default function StepMoment() {
         <Passport passport={passport} pointColor={pointColor} />
       </div>
 
-      <p className="mt-6 text-sm text-ink/60">{COPY.momentCaption}</p>
+      <p className="mt-6 text-sm text-ink/85">{COPY.momentCaption}</p>
 
       {/* 업로드 상태 — 실패해도 "다음"은 막지 않고 재시도만 제공합니다. */}
       <div className="mt-3 flex min-h-[2rem] items-center gap-3 text-xs">
         {uploadState === "uploading" && (
-          <span className="text-ink/40">{COPY.uploadInProgress}</span>
+          <span className="text-ink/70">{COPY.uploadInProgress}</span>
         )}
         {uploadState === "failed" && (
           <>
@@ -135,7 +135,7 @@ export default function StepMoment() {
             <button
               type="button"
               onClick={() => void runUpload()}
-              className="rounded-full border border-ink/25 px-4 py-1.5 tracking-widest text-ink/70 transition-colors hover:border-ink/50 hover:text-ink"
+              className="rounded-full border border-ink/25 px-4 py-1.5 tracking-widest text-ink/90 transition-colors hover:border-ink/50 hover:text-ink"
             >
               {COPY.uploadRetry}
             </button>
@@ -167,11 +167,11 @@ function Passport({
   pointColor: string;
 }) {
   return (
-    <div className="flex w-[380px] max-w-[86vw] flex-col rounded-2xl border border-accent/40 bg-[#fbf9f4] p-7 text-left shadow-[0_24px_70px_-34px_rgba(0,0,0,0.5)]">
+    <div className="flex w-[23.75rem] max-w-[86vw] flex-col rounded-2xl border border-accent/40 bg-[#fbf9f4] p-7 text-left shadow-[0_24px_70px_-34px_rgba(0,0,0,0.5)]">
       {/* 헤더 */}
       <div className="flex items-center justify-between border-b border-accent/30 pb-4">
         <div>
-          <p className="font-serif text-[11px] tracking-widest2 text-accent">MCM</p>
+          <p className="font-serif text-[0.6875rem] tracking-widest2 text-accent">MCM</p>
           <h3 className="mt-1 font-serif text-lg tracking-wide text-ink">
             {COPY.passportTitle}
           </h3>
@@ -197,14 +197,14 @@ function Passport({
         className="mt-6 rounded-xl border border-dashed bg-accent/5 px-4 py-4"
         style={{ borderColor: `${pointColor}55` }}
       >
-        <p className="text-[10px] tracking-widest2 text-accent">
+        <p className="text-[0.625rem] tracking-widest2 text-accent">
           ✦ {COPY.passportConcierge}
         </p>
         <p className="mt-2 min-h-[1.5em] font-serif text-base leading-snug text-ink">
           {passport ? (
             <span className="animate-fadeIn">{passport.reason}</span>
           ) : (
-            <span className="text-ink/35">{COPY.passportLoading}</span>
+            <span className="text-ink/65">{COPY.passportLoading}</span>
           )}
         </p>
       </div>
@@ -223,7 +223,7 @@ function Field({
 }) {
   return (
     <div className={align === "right" ? "text-right" : "text-left"}>
-      <p className="text-[10px] tracking-widest2 text-ink/40">{label}</p>
+      <p className="text-[0.625rem] tracking-widest2 text-ink/70">{label}</p>
       <p className="mt-1 font-serif text-2xl tracking-wide text-ink">{value}</p>
     </div>
   );
@@ -232,9 +232,9 @@ function Field({
 function Row({ label, value }: { label: string; value: string | null }) {
   return (
     <div className="flex items-center justify-between gap-4">
-      <p className="text-[10px] tracking-widest2 text-ink/40">{label}</p>
+      <p className="text-[0.625rem] tracking-widest2 text-ink/70">{label}</p>
       {value ? (
-        <p className="animate-fadeIn text-right text-sm font-medium tracking-wide text-ink">
+        <p className="animate-fadeIn text-right text-sm font-semibold tracking-wide text-ink">
           {value}
         </p>
       ) : (
@@ -251,7 +251,7 @@ function Emblem() {
 
   if (broken) {
     return (
-      <svg width="34" height="34" viewBox="0 0 34 34" fill="none" aria-hidden>
+      <svg viewBox="0 0 34 34" fill="none" aria-hidden className="h-[2.125rem] w-[2.125rem]">
         <circle cx="17" cy="17" r="15.5" stroke="#b08d57" strokeWidth="1" />
         <circle cx="17" cy="17" r="11" stroke="#b08d57" strokeWidth="0.5" opacity="0.6" />
         <path
@@ -277,12 +277,10 @@ function Emblem() {
 function PlaneArrow() {
   return (
     <svg
-      width="46"
-      height="16"
       viewBox="0 0 46 16"
       fill="none"
       aria-hidden
-      className="mb-1 text-accent"
+      className="mb-1 h-4 w-[2.875rem] text-accent"
     >
       <path d="M0 8h34" stroke="currentColor" strokeWidth="0.75" strokeDasharray="2 2" />
       <path d="M30 3c3 2 7 4 12 5-5 1-9 3-12 5l1.5-5z" fill="currentColor" opacity="0.9" />
@@ -292,7 +290,7 @@ function PlaneArrow() {
 
 function ArrowRight() {
   return (
-    <svg width="28" height="8" viewBox="0 0 28 8" fill="none" aria-hidden>
+    <svg viewBox="0 0 28 8" fill="none" aria-hidden className="h-2 w-7">
       <path d="M0 4h26M22 1l4 3-4 3" stroke="currentColor" strokeWidth="1" />
     </svg>
   );
