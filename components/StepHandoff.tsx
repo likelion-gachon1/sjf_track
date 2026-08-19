@@ -21,9 +21,7 @@ export default function StepHandoff() {
   const choice = findProductChoice(state.productId, state.colorwayKey);
   const pointColor = choice?.colorway.hex ?? "#0a0a0a";
 
-  // ⚠️ 임시 URL — /m/{sessionId} 모바일 라우트는 아직 구현되지 않았습니다(다음 단계).
   const handoffUrl = useMemo(() => {
-    // 백엔드에서 받은 공유 URL 이 있으면 그것을 쓰고, 없으면(업로드 실패 등) 임시 URL 로 폴백합니다.
     if (state.shareUrl) return state.shareUrl;
     const host =
       process.env.NEXT_PUBLIC_PORTAL_HOST ??
@@ -79,17 +77,17 @@ export default function StepHandoff() {
           // eslint-disable-next-line @next/next/no-img-element
           <img src={qrDataUrl} alt="QR" className="h-full w-full" />
         ) : (
-          <span className="text-xs tracking-widest2 text-ink/30">QR</span>
+          <span className="text-xs tracking-widest2 text-ink/60">QR</span>
         )}
       </div>
 
-      <p className="mt-8 whitespace-pre-line text-sm leading-relaxed text-ink/60">
+      <p className="mt-8 whitespace-pre-line text-sm leading-relaxed text-ink/85">
         {COPY.handoffCaption}
       </p>
 
       {/* 만료 안내 — 업로드가 성공했을 때만 실제 시각을 알 수 있습니다. */}
       {expiryLabel && (
-        <p className="mt-3 text-xs text-ink/40">
+        <p className="mt-3 text-xs text-ink/70">
           {COPY.handoffExpiry.replace("{expiry}", expiryLabel)}
         </p>
       )}
@@ -100,7 +98,7 @@ export default function StepHandoff() {
             href={state.capturedImage}
             download={fileName}
             onClick={() => track({ name: "photo_download_clicked" })}
-            className="rounded-full border border-ink/25 px-8 py-3 text-sm tracking-widest text-ink/70 transition-colors hover:border-ink/50 hover:text-ink"
+            className="rounded-full border border-ink/25 px-8 py-3 text-sm tracking-widest text-ink/90 transition-colors hover:border-ink/50 hover:text-ink"
           >
             {COPY.downloadButton}
           </a>

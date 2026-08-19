@@ -3,11 +3,36 @@
 // /config/products.config.ts — this file only defines the shapes, it shouldn't
 // need to change often.
 
-/** 03 MOOD 화면의 선택지. 내부적으로 TimeOfDay 축으로 번역됩니다. */
+/**
+ * 04 MOOD 화면의 결과값. 내부적으로 TimeOfDay 축으로 번역됩니다.
+ * ⚠️ 사용자가 직접 고르지 않고 **카메라로 찍은 의상을 AI가 분석해** 정합니다
+ *    (lib/moodAnalysis.ts). 키 이름과 라벨은 수동 선택 시절 그대로 유지합니다 —
+ *    배경 파일명 토큰(sul/calm/confidence)과 월드 매핑이 이 값을 쓰기 때문입니다.
+ */
 export type MoodKey = "light" | "calm" | "bold";
 
-/** 04 TRAVEL STYLE 화면의 선택지. 내부적으로 SceneType 축으로 번역됩니다. */
+/** 03 TRAVEL STYLE 화면의 선택지. 내부적으로 SceneType 축으로 번역됩니다. */
 export type JourneyKey = "explore" | "culture" | "relax";
+
+/** 명도·채도의 3단계 표기. AI 응답과 로컬 폴백이 같은 척도를 씁니다. */
+export type MoodLevel = "HIGH" | "MEDIUM" | "LOW";
+
+/**
+ * 04 MOOD 화면에서 도출된 무드 분석 결과.
+ *
+ * `source` 는 이 결과가 실제 AI(OpenAI Vision) 응답인지, 네트워크·키 문제로 내려간
+ * 로컬 색 분석 폴백인지를 구분합니다 (여권 PassportData.source 와 같은 규약).
+ */
+export interface MoodAnalysis {
+  mood: MoodKey;
+  /** 의상에서 뽑은 대표 색 — 결과 화면의 컬러 칩에 씁니다. */
+  dominantColor: { name: string; hex: string };
+  brightnessLevel: MoodLevel;
+  saturationLevel: MoodLevel;
+  /** 왜 이 무드인지 한 줄 설명 (한국어). */
+  description: string;
+  source: "ai" | "local";
+}
 
 /** 02 PRODUCT 화면에서 고르는 컬러웨이. */
 export type ColorwayKey = "pink" | "beige";
@@ -23,19 +48,15 @@ export type SceneType = "street" | "culture" | "leisure";
 
 export type WorldId =
   | "paris_dawn"
-  | "monaco_night"
   | "seoul_neon"
   | "milano_terrace"
-  | "tokyo_mirage"
-  | "ibiza_sunset"
-  | "newyork_attitude"
-  | "santorini_breeze";
+  | "newyork_attitude";
 
 export type StepId =
   | "intro" // 01 START
   | "product" // 02 PRODUCT       (01/03)
-  | "mood" // 03 MOOD             (02/03)
-  | "journey" // 04 TRAVEL STYLE  (03/03)
+  | "journey" // 03 TRAVEL STYLE  (02/03)
+  | "mood" // 04 MOOD             (03/03) — 카메라 촬영 + AI 무드 분석
   | "opening" // 05 PORTAL OPENING (프리로드 구간)
   | "reveal" // 06 WORLD REVEAL
   | "experience" // 07 EXPERIENCE
@@ -50,13 +71,21 @@ export type StepId =
  * - `"segmentation"` — MediaPipe SelfieSegmentation (**현재 동작 방식**).
  *   배경에 아무 제약이 없는 대신, 프레임마다 마스크를 새로 추정하므로 인물이
  *   움직이면 경계가 미세하게 흔들리고 그 틈으로 실제 배경이 살짝 비칩니다.
- * - `"chromakey"` — 그린 스크린 + 색상 키잉 (**부스 제작 시 적용 예정**).
- *   색이라는 고정 기준으로 자르기 때문에 움직여도 경계가 흔들리지 않습니다.
+ * - `"chromakey"` — 그린 스크린 + 색상 키잉 (**현재 기본값**).
+ *   색이라는 고정 기준으로 자르기 때문에 움직여도 경계가 흔들리지 않고,
+ *   인물 전용 모델에 잘려나가던 가방 스트랩도 살아납니다. 대신 **그린 스크린이
+ *   반드시 있어야** 합니다 — 없으면 화면이 통째로 배경으로 판정됩니다.
  *
- * ⚠️ `"chromakey"` 는 아직 구현되지 않았습니다. `MATTING_CONFIG` 주석과
- *    README "다음 단계: 그린 스크린 크로마키" 를 참고하세요.
+ * 기본값은 `MATTING_CONFIG.mode`, 실행 중 전환은 `?matting=segmentation`.
+ * 키 컬러 실측은 `/calibrate` 에서 합니다 (README "그린 스크린 크로마키" 참고).
  */
 export type MattingMode = "segmentation" | "chromakey";
+
+/**
+ * 07 인물 분리 루프의 상태. 두 방식(useSegmentation / useChromaKey)이 같은 값을
+ * 돌려주므로 MirrorStage 가 어느 쪽이 돌고 있는지 몰라도 UI 를 그릴 수 있습니다.
+ */
+export type MattingStatus = "idle" | "loading" | "running" | "error";
 
 /** 캔버스에서 CSS gradient 를 그대로 재현하기 위한 스톱. */
 export interface GradientStop {
@@ -87,22 +116,6 @@ export interface Product {
   colorways: Colorway[];
 }
 
-/**
- * SAVED ITEMS(관심 제품) 목록에 보여줄 샘플 아이템.
- * ⚠️ 프로토타입용 예시 데이터입니다 — 실제 위시리스트 연동 전까지 고정 노출됩니다.
- */
-export interface SavedItem {
-  id: string;
-  /** "Aren Crossbody" */
-  name: string;
-  /** "Black" 처럼 카드 하단 보조 표기 */
-  line: string;
-  /** 이미지 없을 때의 플레이스홀더 색. */
-  hex: string;
-  /** /products/*.png (없으면 hex 플레이스홀더) */
-  image?: string;
-}
-
 export interface WorldDef {
   id: WorldId;
   /** 06 리빌 화면의 대문자 표기 — "NEW YORK" */
@@ -126,8 +139,6 @@ export interface WorldDef {
   gradientAngle?: number;
   /** /worlds/*.webp — 없으면 gradient 폴백 */
   backgroundImage?: string;
-  /** /bgm/{worldId}.mp3 — 파일이 없어도 앱은 무음으로 정상 동작합니다. */
-  bgm?: string;
   /** Which text color reads best on top of this gradient. */
   textOn: "light" | "dark";
 }

@@ -5,7 +5,7 @@ import type {
   Answers,
   ColorwayKey,
   JourneyKey,
-  MoodKey,
+  MoodAnalysis,
   SavedMoment,
   StepId,
   WorldId,
@@ -19,6 +19,12 @@ interface FlowState {
   productId: string | null;
   colorwayKey: ColorwayKey | null;
   answers: Answers;
+  /**
+   * 04 MOOD 의 AI 분석 결과 전문. `answers.mood` 는 여기서 뽑은 키를 그대로 복사한
+   * 값이라 월드 결정·업로드 경로는 예전과 동일하게 동작하고, 컬러 칩·설명처럼
+   * 화면에만 쓰이는 부가 정보는 이쪽에서 꺼내 씁니다.
+   */
+  moodAnalysis: MoodAnalysis | null;
   selectedWorldId: WorldId | null;
   capturedAt: number | null;
   /** 촬영 결과 JPEG dataURL (서버 업로드 없이 메모리에만 보관). */
@@ -39,6 +45,7 @@ const initialState: FlowState = {
   productId: null,
   colorwayKey: null,
   answers: { mood: null, journey: null },
+  moodAnalysis: null,
   selectedWorldId: null,
   capturedAt: null,
   capturedImage: null,
@@ -52,8 +59,8 @@ type FlowAction =
   | { type: "SET_CONSENT"; value: boolean }
   | { type: "START"; sessionId: string }
   | { type: "SELECT_PRODUCT"; productId: string; colorwayKey: ColorwayKey }
-  | { type: "ANSWER_MOOD"; value: MoodKey }
   | { type: "ANSWER_JOURNEY"; value: JourneyKey }
+  | { type: "ANALYZE_MOOD"; result: MoodAnalysis }
   | { type: "RESOLVE_WORLD"; worldId: WorldId }
   | { type: "ENTER_PORTAL" }
   | { type: "CAPTURE"; dataUrl: string }
@@ -81,23 +88,26 @@ function flowReducer(state: FlowState, action: FlowAction): FlowState {
         ...state,
         productId: action.productId,
         colorwayKey: action.colorwayKey,
-        step: "mood",
-      };
-
-    case "ANSWER_MOOD":
-      if (state.step !== "mood") return state;
-      return {
-        ...state,
-        answers: { ...state.answers, mood: action.value },
         step: "journey",
       };
 
     case "ANSWER_JOURNEY":
-      // 수정안: 선택과 동시에 다음 단계(05 프리로드)로 이동합니다.
+      // 선택과 동시에 다음 단계(04 무드 분석)로 이동합니다.
       if (state.step !== "journey") return state;
       return {
         ...state,
         answers: { ...state.answers, journey: action.value },
+        step: "mood",
+      };
+
+    case "ANALYZE_MOOD":
+      // 사용자가 고르는 게 아니라 카메라 분석 결과가 들어옵니다. 결과 화면의
+      // "다음" 버튼에서 한 번만 dispatch 되고, 여기서 05 프리로드로 넘어갑니다.
+      if (state.step !== "mood") return state;
+      return {
+        ...state,
+        answers: { ...state.answers, mood: action.result.mood },
+        moodAnalysis: action.result,
         step: "opening",
       };
 

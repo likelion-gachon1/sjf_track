@@ -59,8 +59,6 @@ const SPEAKER_BODY = "M4 10v4h3l4 3.5V6.5L7 10H4z";
 function SpeakerOnIcon() {
   return (
     <svg
-      width="24"
-      height="24"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -68,6 +66,7 @@ function SpeakerOnIcon() {
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden
+      className="h-6 w-6"
     >
       <path d={SPEAKER_BODY} />
       <path d="M14.5 9.2a4 4 0 0 1 0 5.6" />
@@ -79,8 +78,6 @@ function SpeakerOnIcon() {
 function SpeakerMutedIcon() {
   return (
     <svg
-      width="24"
-      height="24"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -88,6 +85,7 @@ function SpeakerMutedIcon() {
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden
+      className="h-6 w-6"
     >
       <path d={SPEAKER_BODY} />
       <path d="M14.5 10l5 4M19.5 10l-5 4" />

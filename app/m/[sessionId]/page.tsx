@@ -1,122 +1,79 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { fetchSession, formatExpiresAt, type SessionResponse } from "@/lib/api";
-import { describeSessionError, type SessionErrorView } from "@/lib/sessionError";
+import Image from "next/image";
+import Link from "next/link";
 
-// QR 을 스캔하면 열리는 모바일 결과 페이지 (/m/{sessionId}).
-// 백엔드에 사진을 다시 물어봐서 화면에 띄우고, 저장할 수 있게 합니다.
-export default function MobileResultPage({
+// QR 을 스캔하면 열리는 모바일 랜딩 페이지 (/m/{sessionId}).
+// 촬영한 사진 보러가기 / 체험한 제품 보러가기 두 가지 링크를 제공합니다.
+export default function MobileLandingPage({
   params,
 }: {
   params: { sessionId: string };
 }) {
-  const [data, setData] = useState<SessionResponse | null>(null);
-  const [error, setError] = useState<SessionErrorView | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetchSession(params.sessionId)
-      .then((res) => {
-        if (!cancelled) setData(res);
-      })
-      .catch((err: unknown) => {
-        // 원본 오류는 콘솔에 남겨 스태프가 원격으로 원인을 확인할 수 있게 합니다.
-        console.warn("[portal] 세션 조회 실패:", err);
-        if (!cancelled) setError(describeSessionError(err));
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [params.sessionId]);
-
   return (
     <main
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 20,
-        padding: 24,
-        background: "#f7f5f1",
-        color: "#1a1a1a",
-        fontFamily:
-          "var(--font-suit), -apple-system, BlinkMacSystemFont, sans-serif",
-        textAlign: "center",
-      }}
+      className="relative mx-auto flex min-h-screen w-full max-w-[402px] flex-col px-5 bg-cover bg-center bg-no-repeat"
+      style={{ backgroundImage: "url('/ui/qr.jpg')" }}
     >
-      <h1 style={{ fontSize: 20, margin: 0 }}>YOUR MCM MOMENT</h1>
-
-      {error && (
-        <div style={{ maxWidth: 340 }}>
-          <p style={{ color: "#c0392b", fontSize: 15, fontWeight: 600, margin: "0 0 8px" }}>
-            {error.title}
-          </p>
-          <p style={{ color: "#6b6b6b", fontSize: 13, lineHeight: 1.6, margin: 0 }}>
-            {error.detail}
-          </p>
-        </div>
-      )}
-
-      {!error && !data && (
-        <p style={{ color: "#6b6b6b", fontSize: 14 }}>사진을 불러오는 중…</p>
-      )}
-
-      {data && (
-        <>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={data.imageUrl}
-            alt="촬영된 순간"
-            style={{
-              width: "100%",
-              maxWidth: 420,
-              borderRadius: 16,
-              boxShadow: "0 20px 60px -30px rgba(0,0,0,0.5)",
-            }}
+      {/* 헤더 — MCM 로고 + Portal 텍스트 */}
+      <header className="flex h-[108px] items-center justify-center gap-6">
+        <div className="relative h-10 w-10 shrink-0">
+          <Image
+            src="/ui/MCM_logo.png"
+            alt="MCM"
+            width={40}
+            height={40}
+            className="object-contain"
           />
-          <a
-            href={data.downloadUrl}
-            style={{
-              marginTop: 8,
-              padding: "12px 28px",
-              borderRadius: 999,
-              border: "1px solid rgba(26,26,26,0.25)",
-              color: "#1a1a1a",
-              textDecoration: "none",
-              fontSize: 14,
-              letterSpacing: "0.05em",
-            }}
-          >
-            사진 저장하기
-          </a>
+        </div>
+        <p className="text-center text-[22px] font-semibold uppercase tracking-normal text-[#242424]">
+          MCM Portal
+        </p>
+      </header>
 
-          {/* 관심 제품 화면으로 — 부스가 아니라 이 폰에서 이어집니다. */}
-          <a
-            href={`/m/${params.sessionId}/shop`}
-            style={{
-              padding: "12px 32px",
-              borderRadius: 999,
-              background: "#1a1a1a",
-              color: "#fff",
-              textDecoration: "none",
-              fontSize: 14,
-              letterSpacing: "0.05em",
-            }}
-          >
-            다음 →
-          </a>
+      {/* CTA 버튼들 */}
+      <div className="flex flex-col gap-4 py-5">
+        <Link
+          href={`/m/${params.sessionId}/photo`}
+          className="flex items-center justify-between rounded-2xl bg-[rgba(220,220,220,0.2)] px-6 py-6"
+        >
+          <span className="text-[15px] font-semibold uppercase text-[#242424]">
+            촬영한 사진 보러가기
+          </span>
+          <ArrowIcon />
+        </Link>
 
-          {/* 만료 안내 — 링크가 언제까지 살아 있는지 알려줍니다. */}
-          {formatExpiresAt(data.expiresAt) && (
-            <p style={{ marginTop: 4, fontSize: 12, color: "#8a8a8a" }}>
-              {formatExpiresAt(data.expiresAt)}까지 볼 수 있어요.
-            </p>
-          )}
-        </>
-      )}
+        <Link
+          href={`/m/${params.sessionId}/shop`}
+          className="flex items-center justify-between rounded-2xl bg-[rgba(220,220,220,0.2)] px-6 py-6"
+        >
+          <span className="text-[15px] font-semibold uppercase text-[#242424]">
+            체험한 제품 보러가기
+          </span>
+          <ArrowIcon />
+        </Link>
+      </div>
     </main>
+  );
+}
+
+function ArrowIcon() {
+  return (
+    <svg
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+      className="shrink-0"
+    >
+      <path
+        d="M9.5 6.5L15.5 12L9.5 17.5"
+        stroke="#242424"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }

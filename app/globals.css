@@ -13,15 +13,28 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-/* 선택지 호버 물결 — 커서 지점에서 퍼지며 사라집니다.
-   transform/opacity 만 애니메이션하므로 컴포지터에서 처리됩니다. */
-@keyframes hover-ripple {
+/* 선택지 호버 물결 — 버튼 중앙에서 퍼지며 사라집니다.
+   transform/opacity 만 애니메이션하므로 컴포지터에서 처리됩니다.
+
+   ⚠️ 크기와 불투명도를 **일부러 두 애니메이션으로 쪼갰습니다.** 하나로 묶어 둘 다
+      ease-out 을 태우면 원이 커져 눈에 띌 때쯤 이미 다 흐려져서, 불투명도를
+      아무리 올려도 연해 보입니다. fade 만 ease-in 으로 빼야 색이 남습니다.
+      (중간에 keyframe 을 끼우는 방식은 transform 에도 타이밍 함수가 구간별로
+       다시 걸려 scale 이 튀므로 쓰지 마세요.) */
+@keyframes hover-ripple-scale {
   from {
     transform: translate(-50%, -50%) scale(0);
-    opacity: var(--hover-ripple-opacity, 0.26);
   }
   to {
     transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes hover-ripple-fade {
+  from {
+    opacity: var(--hover-ripple-opacity, 0.26);
+  }
+  to {
     opacity: 0;
   }
 }
@@ -29,8 +42,35 @@ body {
 /* 재생 여부는 RIPPLE_CONFIG.respectReducedMotion 으로 JS 에서 판정합니다.
    여기에 @media (prefers-reduced-motion) 로 숨기면 그 설정을 덮어쓸 수 없게 됩니다. */
 
-/* Booth screens are large landscape displays; keep a comfortable min width. */
+/* 부스 화면 확대 배율 — 큰 가로 디스플레이를 멀찍이 서서 보기 때문에 기본 16px 로는
+   글자와 버튼이 작습니다. Tailwind 의 글자 크기·간격·너비가 전부 rem 이므로,
+   **루트 글꼴 크기 하나로 글자와 컴포넌트가 같은 비율로 함께 커집니다.**
+   더 키우거나 줄이려면 이 값만 고치세요 (16px = 확대 없음, 20px = +25%).
+
+   ⚠️ html 에 걸되 `:has(#portal-root)` 로 **부스 플로우에만** 한정합니다.
+      - rem 은 언제나 html 기준이라 #portal-root 에 font-size 를 줘도 효과가 없습니다.
+      - html 에 무조건 걸면 폰 화면(/m/...)까지 커지는데, 그쪽은 피그마 시안대로
+        px 고정값(w-[402px] 등)과 rem 이 섞여 있어 함께 키우면 레이아웃이 깨집니다.
+      - `:has()` 를 모르는 브라우저에서는 규칙이 통째로 무시돼 16px 로 남습니다.
+        (= 확대 전 크기 그대로라 안전하게 폴백됩니다) */
+html:has(#portal-root) {
+  font-size: 22px;
+}
+
+/* 부스 화면 기본 글자 굵기 — 멀리서도 또렷하게 읽히도록 본문을 굵게 깔아둡니다.
+   ⚠️ SUIT 는 **400 / 700 / 800 세 파일만** 있습니다(public/font). CSS 폰트 매칭 규칙상
+      600 은 위쪽에서 먼저 찾으므로 700(Bold)으로 떨어지고, 500 은 아래쪽을 먼저 찾아
+      400(Regular)으로 떨어집니다 — 즉 **500 을 쓰면 굵어지지 않습니다.**
+      제목은 font-extrabold(800)라 본문이 굵어져도 위계가 유지됩니다.
+   되돌리려면 이 블록을 지우거나 400 으로 바꾸세요. */
+html:has(#portal-root) body {
+  font-weight: 600;
+}
+
+/* Booth screens are large landscape displays; keep a comfortable min width.
+   ⚠️ rem 으로 둡니다 — px 로 고정하면 글자만 커지고 가로 여유는 그대로라
+   선택 카드들이 서로 밀립니다. 64rem = 확대 전 1024px, 확대 후 1280px. */
 #portal-root {
-  min-width: 1024px;
+  min-width: 64rem;
   min-height: 100vh;
 }

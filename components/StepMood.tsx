@@ -1,180 +1,202 @@
 "use client";
 
-import { COPY, MOOD_QUESTION } from "@/config/portal.config";
+import { useCallback, useRef, useState } from "react";
+import { COPY, MOOD_ANALYSIS_CONFIG } from "@/config/portal.config";
 import { track } from "@/lib/analytics";
 import { usePortalFlow } from "@/lib/FlowContext";
-import type { MoodKey, QuestionOption } from "@/lib/types";
-import { useHoverRipple } from "@/lib/useHoverRipple";
-import { useMotionAllowed, useRipple } from "@/lib/useRipple";
+import {
+  captureAnalysisFrame,
+  neutralMoodAnalysis,
+  requestMoodAnalysis,
+} from "@/lib/moodAnalysis";
+import { useCamera } from "@/lib/useCamera";
 import StepFrame from "./StepFrame";
 
-// 03 MOOD (02 / 03)
-// ⚠️ 분위기는 내부적으로 시간대(낮/노을/밤) 축에 반영되지만, 그 축을 화면에
-//    드러내지 않습니다. 아이콘도 "빛의 세기"만 다르게 표현합니다.
+// 04 MOOD (03 / 03) — 무드를 고르는 화면이 아니라 **AI가 판정하는** 화면입니다.
+//
+//   guide     : 라이브 프리뷰 + 상의 가이드 프레임 + [AI 무드 분석 시작]
+//   analyzing : 05 와 같은 톤의 전체화면 로딩 → 판정이 끝나면 바로 05 로 넘어감
+//
+// 판정 결과는 화면에 보여주지 않습니다. state.moodAnalysis 에 담겨 World 매칭과
+// 09 여권 카피에만 쓰입니다.
+//
+// 카메라는 PortalRuntime 이 소유하는 스트림을 useCamera 로 빌려 씁니다. 여기서
+// 먼저 확보해두면 05 프리로드와 07 촬영이 같은 스트림을 재사용하므로, 권한 팝업은
+// 이 화면에서 한 번만 뜨고 07 진입은 오히려 빨라집니다.
+type Phase = "guide" | "analyzing";
+
+/**
+ * 판정이 이보다 빨리 끝나도 이 화면은 최소 이만큼 떠 있습니다 — 로컬 폴백은
+ * 즉시 끝나서 이게 없으면 화면이 깜빡이고 지나갑니다.
+ * (05 는 같은 역할을 OPENING_STAGES 합계가 합니다.)
+ */
+const ANALYZING_MIN_VISIBLE_MS = 2200;
+
 export default function StepMood() {
   const { dispatch } = usePortalFlow();
-  const { trigger, isTransitioning } = useRipple();
+  const { videoRef, status, errorMessage, retry } = useCamera();
+
+  const [phase, setPhase] = useState<Phase>("guide");
+  // 분석은 한 번만 — 버튼 연타로 요청이 겹치지 않게 막습니다.
+  const runningRef = useRef(false);
+
+  const runAnalysis = useCallback(async () => {
+    if (runningRef.current) return;
+    runningRef.current = true;
+    setPhase("analyzing");
+
+    const video = videoRef.current;
+    const frame = video ? captureAnalysisFrame(video) : null;
+
+    const minVisible = new Promise<void>((resolve) =>
+      window.setTimeout(resolve, ANALYZING_MIN_VISIBLE_MS)
+    );
+    // 프레임을 못 잡았으면(카메라 실패·첫 프레임 전) 서버를 부르지 않고 바로 중립값으로.
+    const [analysis] = await Promise.all([
+      frame ? requestMoodAnalysis(frame) : neutralMoodAnalysis(),
+      minVisible,
+    ]);
+
+    track({ name: "mood_analyzed", value: analysis.mood, source: analysis.source });
+    dispatch({ type: "ANALYZE_MOOD", result: analysis });
+  }, [dispatch, videoRef]);
+
+  if (phase === "analyzing") return <AnalyzingScreen />;
+
+  const cameraFailed = status === "error";
+  const waiting = status === "idle" || status === "requesting";
 
   return (
-    <StepFrame stepNumber={2} heading={COPY.moodHeading} subline={COPY.moodSubline}>
-      {/* 추상 비주얼 — 와이어프레임 03 의 궤도 그래픽. 인라인 SVG (에셋 불필요). */}
-      <div className="mb-12 flex h-48 w-full max-w-2xl items-center justify-center">
-        <OrbitVisual />
+    <StepFrame stepNumber={3} heading={COPY.moodHeading} subline={COPY.moodSubline}>
+      {/* ⚠️ 크기를 키우지 마세요. 루트 폰트가 22px(부스 확대 배율)이라 rem 이
+          그대로 곱해집니다 — 26rem/36rem 이면 572×792px 이 돼 1080p 에서도
+          미리보기+버튼이 한 화면에 안 들어가고 스크롤이 생깁니다. */}
+      <div className="relative h-[20rem] w-[28rem] overflow-hidden rounded-2xl border border-ink/10 bg-ink/90 shadow-[0_18px_50px_-28px_rgba(0,0,0,0.5)]">
+        <video
+          ref={videoRef}
+          muted
+          playsInline
+          autoPlay
+          // 셀피처럼 보이도록 프리뷰만 좌우 반전합니다 (분석은 원본 프레임으로).
+          className="h-full w-full -scale-x-100 object-cover"
+        />
+
+        {status === "ready" && <GuideFrame />}
+
+        {waiting && (
+          <Overlay>
+            <span className="h-8 w-8 animate-spin rounded-full border-2 border-white/25 border-t-white/90" />
+            <p className="text-sm">{COPY.cameraLoading}</p>
+          </Overlay>
+        )}
+
+        {cameraFailed && (
+          <Overlay>
+            <p className="max-w-sm text-sm">{errorMessage}</p>
+            <button
+              type="button"
+              onClick={retry}
+              className="rounded-full border border-white/40 px-6 py-2 text-xs tracking-widest hover:bg-white/10"
+            >
+              {COPY.cameraRetryButton}
+            </button>
+          </Overlay>
+        )}
       </div>
 
-      <div className="flex justify-center gap-6">
-        {MOOD_QUESTION.options.map((option) => (
-          <MoodOption
-            key={option.key}
-            option={option}
-            disabled={isTransitioning}
-            onSelect={(e) =>
-              trigger(e, "step", () => {
-                dispatch({ type: "ANSWER_MOOD", value: option.key });
-                track({ name: "mood_selected", value: option.key });
-              })
-            }
-          />
-        ))}
-      </div>
+      <p className="mt-4 text-sm text-ink/80">{COPY.moodGuide}</p>
+
+      <button
+        type="button"
+        disabled={status !== "ready"}
+        onClick={() => void runAnalysis()}
+        className="mt-6 rounded-full bg-ink px-12 py-3 text-sm tracking-widest2 text-paper transition-opacity hover:opacity-85 disabled:opacity-30"
+      >
+        {COPY.moodScanButton}
+      </button>
+
+      {/* 카메라를 끝내 못 켰을 때의 출구 — 손님을 세워두지 않고 폴백으로 진행합니다. */}
+      {cameraFailed && (
+        <button
+          type="button"
+          onClick={() => void runAnalysis()}
+          className="mt-2 text-xs text-ink/70 underline underline-offset-4 hover:text-ink/90"
+        >
+          {COPY.moodCameraSkip}
+        </button>
+      )}
     </StepFrame>
   );
 }
 
-// 선택지 한 칸. 호버하면 커서 지점에서 물결이 퍼집니다.
-function MoodOption({
-  option,
-  disabled,
-  onSelect,
-}: {
-  option: QuestionOption<MoodKey>;
-  disabled: boolean;
-  onSelect: (e: React.MouseEvent) => void;
-}) {
-  const { handlers, layer } = useHoverRipple(disabled);
-
+// 상의가 와야 할 자리를 표시합니다. MOOD_ANALYSIS_CONFIG.sampleRegion 을 그대로
+// 쓰므로, 폴백이 실제로 색을 재는 영역과 화면 안내가 어긋나지 않습니다.
+function GuideFrame() {
+  const { x, y, w, h } = MOOD_ANALYSIS_CONFIG.sampleRegion;
   return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={onSelect}
-      {...handlers}
-      className="relative flex h-40 w-48 items-center justify-center overflow-hidden rounded-xl border border-ink/15 transition-colors hover:border-accent hover:bg-accent/5 disabled:cursor-default"
-    >
-      {layer}
-      {/* 물결 레이어(absolute) 위에 그려지도록 콘텐츠를 relative 로 감쌉니다. */}
-      <span className="relative flex flex-col items-center gap-3">
-        <MoodIcon mood={option.key} />
-        <span className="text-base tracking-wide text-ink">{option.label}</span>
-        {option.description && (
-          <span className="text-xs leading-relaxed text-ink/50">{option.description}</span>
-        )}
-      </span>
-    </button>
+    <div
+      className="pointer-events-none absolute rounded-xl border-2 border-dashed border-white/55"
+      style={{
+        left: `${x * 100}%`,
+        top: `${y * 100}%`,
+        width: `${w * 100}%`,
+        height: `${h * 100}%`,
+      }}
+    />
   );
 }
 
-// 겹쳐 도는 타원 궤도 + 중심 글로우. 시간대 축을 드러내지 않는 추상 비주얼입니다.
-// 회전은 아주 느리게(60초 1바퀴) 돌고, 접근성 설정에서 모션을 줄이면 멈춥니다.
-const ORBITS = [
-  { rx: 172, ry: 52, angle: 0, opacity: 0.3 },
-  { rx: 154, ry: 64, angle: 27, opacity: 0.24 },
-  { rx: 134, ry: 72, angle: -33, opacity: 0.18 },
-  { rx: 102, ry: 46, angle: 64, opacity: 0.13 },
-];
-
-// 궤도 위에 흩어진 입자. [x, y, r]
-const PARTICLES = [
-  [408, 96, 2.4],
-  [78, 108, 1.8],
-  [246, 32, 1.6],
-  [190, 168, 2],
-  [330, 148, 1.5],
-];
-
-function OrbitVisual() {
-  // Tailwind 의 motion-safe: 는 OS 설정만 보므로, config 로 덮어쓸 수 있게 JS 로 판정합니다.
-  const spin = useMotionAllowed();
-
+function Overlay({ children }: { children: React.ReactNode }) {
   return (
-    <svg viewBox="0 0 480 200" className="h-full w-full" aria-hidden>
-      <defs>
-        <radialGradient id="mood-core">
-          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.95" />
-          <stop offset="40%" stopColor="#b08d57" stopOpacity="0.26" />
-          <stop offset="100%" stopColor="#b08d57" stopOpacity="0" />
-        </radialGradient>
-      </defs>
+    <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-black/60 px-8 text-center text-white backdrop-blur">
+      {children}
+    </div>
+  );
+}
 
-      {/* 중심 글로우 */}
-      <ellipse cx="240" cy="100" rx="132" ry="86" fill="url(#mood-core)" />
-      <circle cx="240" cy="100" r="17" fill="#ffffff" fillOpacity="0.9" />
-      <circle cx="240" cy="100" r="17" fill="none" stroke="#b08d57" strokeOpacity="0.35" />
-
-      <g
-        className={spin ? "animate-spin" : undefined}
-        style={{
-          animationDuration: "60s",
-          // 입자가 비대칭이라 fill-box(바운딩박스 중심)로 잡으면 궤도가 흔들립니다.
-          // view-box 기준으로 글로우 중심(240,100)에 회전축을 고정합니다.
-          transformBox: "view-box",
-          transformOrigin: "240px 100px",
-        }}
+// 05 PORTAL OPENING 과 같은 연출 톤을 씁니다 — 분석 대기와 프리로드 대기가
+// 시각적으로 이어지도록.
+function AnalyzingScreen() {
+  return (
+    <div
+      className="flex h-full min-h-screen flex-col items-center justify-center gap-10 bg-cover bg-center px-8 text-center"
+      style={{
+        backgroundImage:
+          "linear-gradient(rgba(250,248,245,0.35), rgba(250,248,245,0.35)), url(/ui/load.jpg), linear-gradient(#faf8f5, #faf8f5)",
+      }}
+    >
+      <svg
+        viewBox="0 0 132 132"
+        className="h-[8.25rem] w-[8.25rem] animate-spin"
+        style={{ animationDuration: "7s" }}
+        aria-hidden
       >
-        {ORBITS.map((o) => (
-          <ellipse
-            key={o.angle}
-            cx="240"
-            cy="100"
-            rx={o.rx}
-            ry={o.ry}
-            fill="none"
-            stroke="#0a0a0a"
-            strokeOpacity={o.opacity}
-            strokeWidth="0.9"
-            transform={`rotate(${o.angle} 240 100)`}
+        <circle
+          cx="66"
+          cy="66"
+          r="58"
+          fill="none"
+          stroke="#0a0a0a"
+          strokeOpacity="0.22"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeDasharray="2 12"
+        />
+      </svg>
+
+      <p className="whitespace-pre-line text-lg leading-relaxed text-ink/90">
+        {COPY.moodAnalyzing}
+      </p>
+
+      <div className="flex gap-2.5">
+        {[0, 1, 2].map((i) => (
+          <span
+            key={i}
+            className="h-1.5 w-1.5 animate-pulse rounded-full bg-ink/30"
+            style={{ animationDelay: `${i * 220}ms`, animationDuration: "1.4s" }}
           />
         ))}
-        {PARTICLES.map(([cx, cy, r]) => (
-          <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r={r} fill="#b08d57" fillOpacity="0.5" />
-        ))}
-      </g>
-    </svg>
-  );
-}
-
-// 빛의 세기만 다른 3종 (설렘 → 여유 → 자신감). 아이콘 패키지 없이 인라인 SVG.
-function MoodIcon({ mood }: { mood: MoodKey }) {
-  const rays =
-    mood === "light"
-      ? { count: 4, length: 3.5, width: 0.9 }
-      : mood === "calm"
-        ? { count: 8, length: 2.5, width: 0.8 }
-        : { count: 12, length: 5, width: 1.2 };
-
-  const lines = Array.from({ length: rays.count }, (_, i) => {
-    const angle = (i * 360) / rays.count;
-    const rad = (angle * Math.PI) / 180;
-    const inner = 7;
-    const outer = inner + rays.length;
-    return (
-      <line
-        key={angle}
-        x1={12 + Math.cos(rad) * inner}
-        y1={12 + Math.sin(rad) * inner}
-        x2={12 + Math.cos(rad) * outer}
-        y2={12 + Math.sin(rad) * outer}
-        strokeWidth={rays.width}
-      />
-    );
-  });
-
-  return (
-    <svg width="34" height="34" viewBox="0 0 24 24" aria-hidden>
-      <g stroke="currentColor" strokeLinecap="round" className="text-ink/70">
-        <circle cx="12" cy="12" r="4.2" fill="none" strokeWidth={mood === "bold" ? 1.4 : 1} />
-        {lines}
-      </g>
-    </svg>
+      </div>
+    </div>
   );
 }

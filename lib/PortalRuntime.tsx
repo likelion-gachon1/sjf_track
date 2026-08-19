@@ -5,13 +5,8 @@ import { BGM_CONFIG, CAMERA_CONFIG, SEGMENTATION_CONFIG } from "@/config/portal.
 import type { WorldDef } from "@/lib/types";
 import type { SelfieSegmentation } from "@mediapipe/selfie_segmentation";
 
-// =============================================================================
-// PortalRuntime — 프리로드 자원과 오디오의 보관소
-// -----------------------------------------------------------------------------
-// 05에서 확보한 카메라 스트림·MediaPipe 인스턴스를 07까지, 06에서 시작한 BGM을
-// QR 화면까지 살려 보내려면 컴포넌트 생명주기 밖에 보관할 곳이 필요합니다.
-// PortalApp 레벨에 이 컨텍스트를 하나 두고, 화면들은 여기서 꺼내 씁니다.
-// =============================================================================
+// PortalRuntime — 프리로드 자원(카메라·MediaPipe)과 BGM 오디오의 보관소.
+// 컴포넌트 생명주기 밖에 자원을 유지하여 05→07 전환에서 재초기화를 피합니다.
 
 /**
  * 오디오 언락용 무음 WAV (45바이트). src 가 없는 <audio> 는 play() 가 거부되므로
@@ -306,7 +301,7 @@ export function PortalRuntimeProvider({ children }: { children: React.ReactNode 
   const playBgm = useCallback(
     (src?: string) => {
       if (!src) {
-        console.warn("[portal] 이 World 에는 bgm 이 지정되지 않았습니다 (무음으로 진행).");
+        console.warn("[portal] BGM 경로가 비어 있습니다 (무음으로 진행).");
         return;
       }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { COPY } from "@/config/portal.config";
+import { COPY, RIPPLE_CONFIG } from "@/config/portal.config";
 import { PRODUCT_CHOICES } from "@/config/products.config";
 import { track } from "@/lib/analytics";
 import { usePortalFlow } from "@/lib/FlowContext";
@@ -25,7 +25,7 @@ export default function StepProduct() {
             colorway={colorway}
             disabled={isTransitioning}
             onSelect={(event) =>
-              trigger(event, "step", () => {
+              trigger(event, () => {
                 dispatch({
                   type: "SELECT_PRODUCT",
                   productId: product.id,
@@ -57,7 +57,11 @@ function ProductCard({ product, colorway, disabled, onSelect }: ProductCardProps
   // 로드 실패 시 백팩 실루엣으로 폴백합니다.
   const [imageBroken, setImageBroken] = useState(false);
   const showPhoto = Boolean(colorway.image) && !imageBroken;
-  const { handlers, layer } = useHoverRipple(disabled);
+  // 물결은 그 카드의 제품 색으로 퍼집니다 — 어느 색을 고르는 중인지 손에 잡히게.
+  const { handlers, layer } = useHoverRipple(disabled, {
+    color: colorway.hex,
+    opacity: RIPPLE_CONFIG.hoverProductOpacity,
+  });
 
   return (
     <button
@@ -76,7 +80,7 @@ function ProductCard({ product, colorway, disabled, onSelect }: ProductCardProps
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={colorway.image}
-              alt={`${product.name} ${product.line} — ${colorway.label}`}
+              alt={[product.name, product.line].filter(Boolean).join(" ") + ` — ${colorway.label}`}
               onError={() => setImageBroken(true)}
               className="h-full w-full object-contain p-3"
             />
@@ -85,11 +89,18 @@ function ProductCard({ product, colorway, disabled, onSelect }: ProductCardProps
           )}
         </span>
 
-        <span className="mt-7 block text-base tracking-widest2 text-ink">{colorway.label}</span>
-        <span className="mt-3 block text-xs leading-relaxed text-ink/50">
+        {/* 자간은 바로 아래 제품명(한글)과 같은 기본값으로 둡니다.
+            tracking-widest2(0.35em)는 text-xs 급의 작은 영문 eyebrow 라벨용이라,
+            이 크기(text-base)에 쓰면 "S o f t   P i n k" 처럼 글자가 흩어집니다. */}
+        <span className="mt-7 block text-base text-ink">{colorway.label}</span>
+        <span className="mt-3 block text-xs leading-relaxed text-ink/80">
           {product.name}
-          <br />
-          {product.line}
+          {product.line && (
+            <>
+              <br />
+              {product.line}
+            </>
+          )}
         </span>
       </span>
     </button>
@@ -107,7 +118,7 @@ function BackpackSilhouette({ hex }: { hex: string }) {
   const stud = dark ? "rgba(255,255,255,0.75)" : "rgba(10,10,10,0.35)";
 
   return (
-    <svg width="180" height="210" viewBox="0 0 120 140" aria-hidden>
+    <svg viewBox="0 0 120 140" aria-hidden className="h-[13.125rem] w-[11.25rem]">
       <g fill="none" stroke={line} strokeWidth="1.6" strokeLinejoin="round">
         {/* 손잡이 */}
         <path d="M51 17c1-9 17-9 18 0" strokeLinecap="round" />
