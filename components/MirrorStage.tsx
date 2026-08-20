@@ -122,11 +122,25 @@ export default function MirrorStage({ world, onCapture }: MirrorStageProps) {
 
   const mattingStatus = mode === "chromakey" ? chromaStatus : segStatus;
 
+  // 촬영 버튼을 누르면 바로 찍지 않고 3초 카운트다운 후 촬영합니다.
+  const [countdown, setCountdown] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (countdown === null) return;
+    if (countdown === 0) {
+      const canvas = canvasRef.current;
+      if (canvas) onCapture(captureFrame(canvas));
+      setCountdown(null);
+      return;
+    }
+    const t = window.setTimeout(() => setCountdown((c) => (c ?? 1) - 1), 1000);
+    return () => window.clearTimeout(t);
+  }, [countdown, onCapture]);
+
   const handleShutter = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    onCapture(captureFrame(canvas));
-  }, [onCapture]);
+    if (countdown !== null) return;
+    setCountdown(3);
+  }, [countdown]);
 
   const handleCanvasClick = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -189,18 +203,28 @@ export default function MirrorStage({ world, onCapture }: MirrorStageProps) {
         </Overlay>
       )}
 
+      {/* 카운트다운 — 촬영 버튼을 누르면 3초간 표시됩니다. 화면(=피사체)을 가리지 않도록
+          어둡게 깔지 않고 숫자만 얹습니다. */}
+      {countdown !== null && countdown > 0 && (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <span className="text-9xl font-bold text-white [text-shadow:0_2px_16px_rgba(0,0,0,0.7)]">
+            {countdown}
+          </span>
+        </div>
+      )}
+
       <div className="absolute inset-x-0 bottom-12 flex flex-col items-center gap-4">
         <span className="text-xs tracking-widest2 text-white [text-shadow:0_1px_6px_rgba(0,0,0,0.5)]">
           {COPY.captureButton}
         </span>
         <button
           type="button"
-          disabled={!ready}
+          disabled={!ready || countdown !== null}
           onClick={handleShutter}
           aria-label={COPY.captureButton}
           className={[
             "h-16 w-16 rounded-full border-[0.1875rem] border-white shadow-lg transition-transform",
-            ready ? "bg-white/95 hover:scale-105 active:scale-95" : "bg-white/40",
+            ready && countdown === null ? "bg-white/95 hover:scale-105 active:scale-95" : "bg-white/40",
           ].join(" ")}
         />
       </div>

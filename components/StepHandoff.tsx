@@ -55,7 +55,6 @@ export default function StepHandoff() {
     track({ name: "qr_displayed", sessionId: state.sessionId });
   }, [runtime, state.sessionId]);
 
-  const fileName = `mcm-portal-${world?.id ?? "world"}-${state.capturedAt ?? Date.now()}.jpg`;
   const expiryLabel = state.expiresAt ? formatExpiresAt(state.expiresAt) : null;
 
   function handleRestart() {
@@ -93,19 +92,9 @@ export default function StepHandoff() {
       )}
 
       <div className="mt-12 flex items-center gap-4">
-        {state.capturedImage && (
-          <a
-            href={state.capturedImage}
-            download={fileName}
-            onClick={() => track({ name: "photo_download_clicked" })}
-            className="rounded-full border border-ink/25 px-8 py-3 text-sm tracking-widest text-ink/90 transition-colors hover:border-ink/50 hover:text-ink"
-          >
-            {COPY.downloadButton}
-          </a>
-        )}
-
-        {/* 부스의 마지막 화면입니다. 사진 저장은 QR 로 넘어간 폰에서 이어집니다
-            (/m/{sessionId}/photo) — 부스 화면은 다음 고객을 위해 비워둬야 합니다. */}
+        {/* 부스의 마지막 화면입니다. 사진 저장은 QR 로 넘어간 폰에서만 제공합니다
+            (/m/{sessionId}/photo) — 웹(부스) 화면에서는 다운로드 버튼을 빼고
+            다음 고객을 위해 비워둬야 합니다. */}
         <button
           type="button"
           onClick={handleRestart}
