@@ -41,7 +41,6 @@ export type ColorwayKey = "pink" | "beige";
 // World 결정 축
 // 사용자는 장소나 시간대를 직접 고르지 않습니다. 분위기(MoodKey)가 timeOfDay,
 // 여행 스타일(JourneyKey)이 sceneType 으로 매핑되어 World가 결정됩니다.
-// ⚠️ 이 두 축은 내부 축이므로 화면에 드러내지 마세요.
 // -----------------------------------------------------------------------------
 export type TimeOfDay = "day" | "golden" | "night";
 export type SceneType = "street" | "culture" | "leisure";
@@ -85,13 +84,6 @@ export type MattingMode = "segmentation" | "chromakey";
  */
 export type MattingStatus = "idle" | "loading" | "running" | "error";
 
-/** 캔버스에서 CSS gradient 를 그대로 재현하기 위한 스톱. */
-export interface GradientStop {
-  /** 0~1 */
-  offset: number;
-  color: string;
-}
-
 export interface Colorway {
   key: ColorwayKey;
   /** 카드에 표기되는 라벨 — "PINK" */
@@ -126,18 +118,9 @@ export interface WorldDef {
   timeOfDay: TimeOfDay;
   /** 여행 스타일이 반영되는 내부 축 (화면 비노출). */
   sceneType: SceneType;
-  /** CSS gradient string, applied directly via style={{ backgroundImage }}. */
-  gradient: string;
-  /**
-   * 07 캔버스 합성용. CSS 문자열을 파싱하는 대신 같은 값을 여기에 적어둡니다
-   * (lib/composite.ts 가 createLinearGradient 로 재현). gradient 와 함께 고쳐주세요.
-   */
-  gradientStops: GradientStop[];
-  /** gradient 의 각도(deg, CSS 기준). 생략하면 135. */
-  gradientAngle?: number;
-  /** /worlds/*.webp — 없으면 gradient 폴백 */
+  /** /worlds/*.png — 실사 배경 사진 경로 */
   backgroundImage?: string;
-  /** Which text color reads best on top of this gradient. */
+  /** 밝은 World(dark) vs 어두운 World(light). 컬러웨이 톤 보정에 사용. */
   textOn: "light" | "dark";
 }
 

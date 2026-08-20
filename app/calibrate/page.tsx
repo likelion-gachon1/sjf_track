@@ -63,7 +63,7 @@ function CalibrateStage() {
     [colorway, mood, journey]
   );
 
-  // 배경은 캐시에 들어와 있어야 그려집니다 (없으면 World gradient 로 폴백).
+  // 배경은 캐시에 들어와 있어야 그려집니다 (없으면 검정 폴백).
   useEffect(() => {
     void preloadWorldImage(world);
   }, [preloadWorldImage, world]);

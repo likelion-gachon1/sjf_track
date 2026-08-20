@@ -24,8 +24,6 @@ export const COPY = {
   // 01 START
   introTagline: "MCM과 함께\n새로운 World로 떠나보세요.",
   introSubline: "당신의 선택으로 시작되는\nMCM EXPERIENCE",
-  // ⚠️ 04 무드 분석은 촬영한 프레임을 AI(OpenAI)로 **전송**합니다. 저장은 하지 않지만
-  //    외부 전송이 일어나므로 동의 문구에 반드시 남겨두세요.
   consentLabel: "체험을 위한 촬영·AI 스타일 분석 및 일시 보관에 동의합니다.",
   startButton: "시작하기",
 
@@ -142,7 +140,6 @@ export function moodLabel(mood: MoodKey): string {
 }
 
 // --- 3. World 목록 ---
-// ⚠️ gradient 와 gradientStops 는 같은 값으로 유지. textOn 을 바꾸면 매핑 결과가 달라집니다.
 export const WORLDS: Record<WorldId, WorldDef> = {
   paris_dawn: {
     id: "paris_dawn",
@@ -151,15 +148,6 @@ export const WORLDS: Record<WorldId, WorldDef> = {
     tagline: "안개 낀 새벽빛, 첫 만남의 설렘",
     timeOfDay: "day",
     sceneType: "culture",
-    gradient:
-      "linear-gradient(180deg, #c9dcef 0%, #e4ecf3 40%, #f4efe6 72%, #e6d9c8 100%)",
-    gradientAngle: 180,
-    gradientStops: [
-      { offset: 0, color: "#c9dcef" },
-      { offset: 0.4, color: "#e4ecf3" },
-      { offset: 0.72, color: "#f4efe6" },
-      { offset: 1, color: "#e6d9c8" },
-    ],
     textOn: "dark",
   },
 
@@ -170,15 +158,6 @@ export const WORLDS: Record<WorldId, WorldDef> = {
     tagline: "도시의 밤, 강렬하게 존재하는 나",
     timeOfDay: "night",
     sceneType: "street",
-    gradient:
-      "linear-gradient(180deg, #090c12 0%, #182130 42%, #33262a 74%, #7d2a23 100%)",
-    gradientAngle: 180,
-    gradientStops: [
-      { offset: 0, color: "#090c12" },
-      { offset: 0.42, color: "#182130" },
-      { offset: 0.74, color: "#33262a" },
-      { offset: 1, color: "#7d2a23" },
-    ],
     textOn: "light",
   },
 
@@ -189,17 +168,9 @@ export const WORLDS: Record<WorldId, WorldDef> = {
     tagline: "나른한 오후 햇살, 우아한 여유",
     timeOfDay: "golden",
     sceneType: "leisure",
-    gradient:
-      "linear-gradient(180deg, #ffd79b 0%, #f8bd76 34%, #e79f61 68%, #c67a50 100%)",
-    gradientAngle: 180,
-    gradientStops: [
-      { offset: 0, color: "#ffd79b" },
-      { offset: 0.34, color: "#f8bd76" },
-      { offset: 0.68, color: "#e79f61" },
-      { offset: 1, color: "#c67a50" },
-    ],
     textOn: "dark",
   },
+
   seoul_neon: {
     id: "seoul_neon",
     displayName: "SEOUL",
@@ -207,18 +178,8 @@ export const WORLDS: Record<WorldId, WorldDef> = {
     tagline: "빠르게 뛰는 심장, 도시의 빛",
     timeOfDay: "night",
     sceneType: "culture",
-    gradient:
-      "linear-gradient(180deg, #0a0615 0%, #221345 44%, #55206f 76%, #9d2a68 100%)",
-    gradientAngle: 180,
-    gradientStops: [
-      { offset: 0, color: "#0a0615" },
-      { offset: 0.44, color: "#221345" },
-      { offset: 0.76, color: "#55206f" },
-      { offset: 1, color: "#9d2a68" },
-    ],
     textOn: "light",
   },
-
 };
 
 /**
@@ -256,21 +217,29 @@ export const JOURNEY_TO_SCENE: Record<JourneyKey, SceneType[]> = {
   relax: ["leisure", "culture"],
 };
 
-/** 1순위 축이 맞을 때 / 2순위 축이 맞을 때 / 컬러웨이 톤이 맞을 때의 가점. */
-const PRIMARY_MATCH = 3;
-const SECONDARY_MATCH = 1;
+/** 1순위 축이 맞을 때 / 2순위 축이 맞을 때의 가점 (시간대 축 > 공간 축). */
+const TIME_PRIMARY = 4;
+const TIME_SECONDARY = 2;
+const SCENE_PRIMARY = 2;
+const SCENE_SECONDARY = 1;
 const COLORWAY_MATCH = 1;
 
-function axisScore<T extends string>(value: T, priority: T[]): number {
-  if (value === priority[0]) return PRIMARY_MATCH;
-  if (value === priority[1]) return SECONDARY_MATCH;
+function timeScore(value: TimeOfDay, priority: TimeOfDay[]): number {
+  if (value === priority[0]) return TIME_PRIMARY;
+  if (value === priority[1]) return TIME_SECONDARY;
   return 0;
 }
 
-/** 베이지는 어두운 World(textOn: light), 핑크는 밝은 World(textOn: dark)와 어울립니다. */
+function sceneScore(value: SceneType, priority: SceneType[]): number {
+  if (value === priority[0]) return SCENE_PRIMARY;
+  if (value === priority[1]) return SCENE_SECONDARY;
+  return 0;
+}
+
+/** 베이지는 밝은 World(textOn: dark), 핑크는 어두운 World(textOn: light)와 어울립니다. */
 function colorwayScore(colorway: ColorwayKey, world: WorldDef): number {
-  if (colorway === "beige" && world.textOn === "light") return COLORWAY_MATCH;
-  if (colorway === "pink" && world.textOn === "dark") return COLORWAY_MATCH;
+  if (colorway === "beige" && world.textOn === "dark") return COLORWAY_MATCH;
+  if (colorway === "pink" && world.textOn === "light") return COLORWAY_MATCH;
   return 0;
 }
 
@@ -281,8 +250,8 @@ export function scoreWorld(
   world: WorldDef
 ): number {
   return (
-    axisScore(world.timeOfDay, MOOD_TO_TIME[mood]) +
-    axisScore(world.sceneType, JOURNEY_TO_SCENE[journey]) +
+    timeScore(world.timeOfDay, MOOD_TO_TIME[mood]) +
+    sceneScore(world.sceneType, JOURNEY_TO_SCENE[journey]) +
     colorwayScore(colorway, world)
   );
 }
@@ -664,10 +633,6 @@ export const UPLOAD_CONFIG = {
 //     파일이 없으면 콘솔 경고만 남기고 무음으로 정상 동작합니다.
 // -----------------------------------------------------------------------------
 export const BGM_CONFIG = {
-  /**
-   * ⚠️ 파일명에 공백이 있어 %20 으로 인코딩해 뒀습니다. 곡을 바꿀 때도 공백은
-   *    인코딩하거나, 아예 공백 없는 이름으로 저장하세요.
-   */
   src: "/bgm/Golden%20Hour%20Lounge.mp3",
   volume: 0.5,
   fadeInMs: 1200,

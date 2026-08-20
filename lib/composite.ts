@@ -54,32 +54,8 @@ function drawCover(
 }
 
 /**
- * CSS linear-gradient 의 그라데이션 선을 캔버스 좌표로 환산합니다.
- * (CSS 규격: 선 길이 = |w·sin(a)| + |h·cos(a)|, 0deg = 위쪽, 시계방향)
- */
-function cssGradientLine(
-  angleDeg: number,
-  width: number,
-  height: number
-): [number, number, number, number] {
-  const rad = (angleDeg * Math.PI) / 180;
-  const dx = Math.sin(rad);
-  const dy = -Math.cos(rad);
-  const length = Math.abs(width * dx) + Math.abs(height * dy);
-  const cx = width / 2;
-  const cy = height / 2;
-  return [
-    cx - (dx * length) / 2,
-    cy - (dy * length) / 2,
-    cx + (dx * length) / 2,
-    cy + (dy * length) / 2,
-  ];
-}
-
-/**
  * World 배경을 캔버스에 그립니다. 실사 이미지가 준비돼 있으면 cover 로,
- * 없으면 gradientStops 로 CSS gradient 를 그대로 재현합니다.
- * (CSS 문자열을 파싱하지 않는 이유: 파싱 실패가 곧 "화면과 사진이 다름"이 되므로)
+ * 없으면 검정으로 채웁니다 (18조합 전량 이미지가 있으므로 정상 동작 시 도달하지 않음).
  */
 export function drawWorldBackground(
   ctx: CanvasRenderingContext2D,
@@ -93,12 +69,7 @@ export function drawWorldBackground(
     return;
   }
 
-  const [x0, y0, x1, y1] = cssGradientLine(world.gradientAngle ?? 135, width, height);
-  const gradient = ctx.createLinearGradient(x0, y0, x1, y1);
-  for (const stop of world.gradientStops) {
-    gradient.addColorStop(Math.min(1, Math.max(0, stop.offset)), stop.color);
-  }
-  ctx.fillStyle = gradient;
+  ctx.fillStyle = "#000";
   ctx.fillRect(0, 0, width, height);
 }
 

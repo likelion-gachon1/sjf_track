@@ -53,9 +53,6 @@ export default function StepMood() {
 
   return (
     <StepFrame stepNumber={3} heading={COPY.moodHeading} subline={COPY.moodSubline}>
-      {/* ⚠️ 크기를 키우지 마세요. 루트 폰트가 22px(부스 확대 배율)이라 rem 이
-          그대로 곱해집니다 — 26rem/36rem 이면 572×792px 이 돼 1080p 에서도
-          미리보기+버튼이 한 화면에 안 들어가고 스크롤이 생깁니다. */}
       <div className="relative h-[20rem] w-[28rem] overflow-hidden rounded-2xl border border-ink/10 bg-ink/90 shadow-[0_18px_50px_-28px_rgba(0,0,0,0.5)]">
         <video
           ref={videoRef}
