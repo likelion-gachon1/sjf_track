@@ -56,7 +56,7 @@ export default function StepOpening() {
     const world = applyComboBackground(WORLDS[worldId], colorwayKey, { mood, journey });
 
     // 개별 실패는 진행을 막지 않습니다 — 카메라 실패는 07의 에러 UI가,
-    // 이미지 실패는 gradient 폴백이 처리합니다.
+    // 이미지 실패는 검정 폴백이 처리합니다.
     // 헬스체크는 체험을 막지 않습니다 — 서버가 죽었어도 촬영까지는 정상 진행하고,
     // 스태프가 업로드 실패 전에 미리 알아차리도록 경고만 남깁니다.
     void checkHealth().then((ok) => {

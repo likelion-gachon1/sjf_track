@@ -88,7 +88,7 @@ interface PortalRuntimeValue {
   acquireCamera: (deviceId?: string) => Promise<MediaStream>;
   /** 생성 + 에셋 로드 + 워밍업까지 끝낸 인스턴스. 호출이 겹쳐도 하나만 만듭니다. */
   getSegmenter: () => Promise<SelfieSegmentation>;
-  /** decode() 까지 끝낸 배경 이미지. 실패하면 null (gradient 폴백). */
+  /** decode() 까지 끝낸 배경 이미지. 실패하면 null (검정 폴백). */
   preloadWorldImage: (world: WorldDef) => Promise<HTMLImageElement | null>;
   /** 캐시된 배경 이미지 즉시 조회 (RAF 루프에서 await 없이 쓰기 위함). */
   getWorldImage: (world: WorldDef) => HTMLImageElement | null;
@@ -215,7 +215,7 @@ export function PortalRuntimeProvider({ children }: { children: React.ReactNode 
         imageCacheRef.current.set(src, image);
         return image;
       } catch {
-        console.warn(`[portal] World 배경 이미지 로드 실패 (gradient 로 폴백): ${src}`);
+        console.warn(`[portal] World 배경 이미지 로드 실패: ${src}`);
         return null;
       }
     },
