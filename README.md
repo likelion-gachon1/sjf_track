@@ -1,4 +1,19 @@
-# MCM PORTAL
+# MCM PORTAL — 프론트 (`sjf_track`)
+
+> 멋사 대학 14기 해커톤 · 가천미인 · Challenge 02 :: 인터랙티브 리테일
+> Live ▸ https://mcm-portal.duckdns.org
+> Repos ▸ 프론트 sjf_track · 백엔드 sjf_BE · 배경생성 sjf_ai
+
+매장 부스의 대형 가로 화면에서 도는 리테일 체험의 프론트엔드입니다. 고객을 크로마키로 실시간
+분리해 미리 생성해 둔 World 배경 위에 합성하고, 촬영 결과를 백엔드에 저장한 뒤 QR로 방문객
+휴대폰에 넘깁니다. 부스 9개 화면과 QR 이후 모바일 2개 화면, 그리고 무드 판정·여권 카피를
+담당하는 AI 라우트가 이 레포 하나에 들어 있습니다.
+
+Stack ▸ Next.js · TypeScript · Tailwind · WebGL 크로마키 · MediaPipe · OpenAI
+
+---
+
+## 개발·운영 문서
 
 부스 화면 **9개 + QR로 이어지는 모바일 2개**로 구성된 체험입니다. "인물·제품은 그대로,
 주변 공간만 바뀌는" 것이 핵심이라, 촬영 화면에서 **그린 스크린 크로마키**로 인물을 분리해
