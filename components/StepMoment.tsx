@@ -94,7 +94,7 @@ export default function StepMoment() {
     <div className="flex h-full min-h-screen flex-col items-center justify-center bg-paper px-8 py-10 text-center">
       <p className="text-xs tracking-widest2 text-ink/75">{COPY.momentEyebrow}</p>
 
-      <div className="mt-6 flex flex-col items-center gap-8 lg:flex-row lg:items-stretch lg:gap-10">
+      <div className="mt-6 flex flex-col items-center gap-8 lg:flex-row lg:items-center lg:gap-10">
         {/* 촬영 사진 */}
         <div
           className="overflow-hidden rounded-2xl border bg-white shadow-[0_24px_70px_-30px_rgba(0,0,0,0.55)]"
@@ -115,7 +115,11 @@ export default function StepMoment() {
         </div>
 
         {/* MCM TRAVEL PASSPORT */}
-        <Passport passport={passport} pointColor={pointColor} />
+        <Passport
+          passport={passport}
+          pointColor={pointColor}
+          shotAt={state.capturedAt != null ? formatShotAt(state.capturedAt) : "—"}
+        />
       </div>
 
       <p className="mt-6 text-sm text-ink/85">{COPY.momentCaption}</p>
@@ -155,12 +159,21 @@ export default function StepMoment() {
 // 여권 카드 — 빈티지 여권/스탬프 톤. 골드(accent) 포인트 + 세리프 헤더.
 // AI 멘트가 오기 전에는 "발급 중..." 상태를 보여줍니다.
 // -----------------------------------------------------------------------------
+/** 촬영 시각(타임스탬프)을 여권 표기용 "YYYY.MM.DD  HH:mm" 으로 포맷합니다. */
+function formatShotAt(ts: number): string {
+  const d = new Date(ts);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())}  ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 function Passport({
   passport,
   pointColor,
+  shotAt,
 }: {
   passport: PassportData | null;
   pointColor: string;
+  shotAt: string;
 }) {
   return (
     <div className="flex w-[23.75rem] max-w-[86vw] flex-col rounded-2xl border border-accent/40 bg-[#fbf9f4] p-7 text-left shadow-[0_24px_70px_-34px_rgba(0,0,0,0.5)]">
@@ -182,9 +195,9 @@ function Passport({
         <Field label={COPY.passportArrival} value={passport?.arrival ?? "—"} align="right" />
       </div>
 
-      {/* 여행 유형 / 동행 제품 */}
+      {/* 촬영 일시 / 동행 제품 */}
       <div className="mt-6 space-y-4">
-        <Row label={COPY.passportType} value={passport?.travelType ?? null} />
+        <Row label={COPY.passportShotAt} value={shotAt} />
         <Row label={COPY.passportCompanion} value={passport?.companion ?? null} />
       </div>
 
