@@ -15,8 +15,7 @@ export type PortalEvent =
   | { name: "bgm_muted"; muted: boolean }
   | { name: "qr_displayed"; sessionId: string } // KPI: QR 스캔율 분모
   | { name: "photo_download_clicked" } // KPI: 사진 저장
-  // 아래 2종은 모바일(/m/{sessionId}) 화면에서 호출할 예정 — 지금은 타입만 정의
-  | { name: "product_interest_saved"; productId: string; colorwayKey: ColorwayKey }
+  // 모바일(/m/{sessionId}) 화면에서 호출할 예정 — 지금은 타입만 정의
   | { name: "product_detail_viewed"; productId: string }
   // 05 프리로드의 헬스체크 실패 — 촬영 전에 서버 다운을 알아차리기 위한 신호입니다.
   | { name: "backend_unreachable" }

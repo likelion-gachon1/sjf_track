@@ -35,13 +35,6 @@ export interface SessionResponse {
   imageUrl: string;
   downloadUrl: string;
   expiresAt: string;
-  /**
-   * 부스에서 생성한 여권 AI 멘트. 백엔드가 아직 보관하지 않으므로 보통 비어 있고,
-   * 그때는 모바일 페이지가 폴백 문구로 조립합니다(lib/passport.ts).
-   * 백엔드가 실어주기 시작하면 부스와 똑같은 문장이 그대로 표시됩니다.
-   */
-  travelType?: string;
-  reason?: string;
 }
 
 /** 백엔드 공통 오류 응답 (API_SPEC "5. 오류 응답"). */

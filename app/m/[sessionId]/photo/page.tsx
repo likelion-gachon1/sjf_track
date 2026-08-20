@@ -3,9 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { findProductChoice } from "@/config/products.config";
 import { fetchSession, formatExpiresAt, type SessionResponse } from "@/lib/api";
-import { passportFromSession } from "@/lib/passport";
 import { describeSessionError, type SessionErrorView } from "@/lib/sessionError";
 
 // 촬영한 사진 확인 페이지 (/m/{sessionId}/photo).
@@ -88,9 +86,6 @@ export default function MobilePhotoPage({
               YOUR MCM MOMENT
             </p>
 
-            {/* MCM TRAVEL PASSPORT — 부스 09 화면과 같은 카피를 사진 위에 둡니다 */}
-            <MobilePassport session={data} />
-
             {/* 촬영 사진 */}
             <div className="w-full py-5">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -120,87 +115,6 @@ export default function MobilePhotoPage({
         </div>
       </div>
     </main>
-  );
-}
-
-// -----------------------------------------------------------------------------
-// MCM TRAVEL PASSPORT (모바일) — 부스 09 화면(components/StepMoment.tsx)의 축소판.
-//
-// 카피는 세션 값에서 그 자리에서 조립합니다(AI 재호출 없음 — passportFromSession 주석 참고).
-// 세션에 없는 조합이면 null 이라 카드만 빠지고 사진·저장 버튼은 그대로 남습니다.
-// -----------------------------------------------------------------------------
-function MobilePassport({ session }: { session: SessionResponse }) {
-  const passport = passportFromSession(session);
-  if (!passport) return null;
-
-  const pointColor =
-    findProductChoice(session.productId, session.colorwayKey)?.colorway.hex ?? "#b08d57";
-
-  return (
-    <section className="w-full rounded-2xl border border-[#b08d57]/40 bg-[#fbf9f4] p-4">
-      {/* 헤더 */}
-      <div className="flex items-center justify-between border-b border-[#b08d57]/30 pb-3">
-        <div>
-          <p className="text-[9px] tracking-[0.2em] text-[#b08d57]">MCM</p>
-          <h3 className="mt-0.5 text-[13px] font-semibold tracking-wide text-[#242424]">
-            MCM TRAVEL PASSPORT
-          </h3>
-        </div>
-        <Image src="/ui/MCM_logo.png" alt="MCM" width={28} height={28} className="object-contain" />
-      </div>
-
-      {/* 출발지 → 도착지 */}
-      <div className="mt-4 flex items-end justify-between gap-2">
-        <PassportField label="출발지" value={passport.departure} />
-        <span aria-hidden className="pb-1 text-[13px] text-[#b08d57]">
-          ✈
-        </span>
-        <PassportField label="도착지" value={passport.arrival} align="right" />
-      </div>
-
-      {/* 여행 유형 / 동행 제품 */}
-      <div className="mt-4 space-y-2">
-        <PassportRow label="여행 유형" value={passport.travelType} />
-        <PassportRow label="동행 제품" value={passport.companion} />
-      </div>
-
-      {/* 추천 이유 */}
-      <div
-        className="mt-4 rounded-xl border border-dashed bg-[#b08d57]/5 px-3 py-3"
-        style={{ borderColor: `${pointColor}55` }}
-      >
-        <p className="text-[9px] tracking-[0.2em] text-[#b08d57]">✦ AI CONCIERGE</p>
-        <p className="mt-1.5 text-[14px] leading-snug text-[#242424]">{passport.reason}</p>
-      </div>
-    </section>
-  );
-}
-
-function PassportField({
-  label,
-  value,
-  align = "left",
-}: {
-  label: string;
-  value: string;
-  align?: "left" | "right";
-}) {
-  return (
-    <div className={align === "right" ? "text-right" : "text-left"}>
-      <p className="text-[9px] tracking-[0.2em] text-[#6b6b6b]">{label}</p>
-      <p className="mt-0.5 text-[17px] font-semibold tracking-wide text-[#242424]">{value}</p>
-    </div>
-  );
-}
-
-function PassportRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-baseline justify-between gap-3">
-      <p className="shrink-0 text-[9px] tracking-[0.2em] text-[#6b6b6b]">{label}</p>
-      <p className="text-right text-[12px] font-semibold tracking-wide text-[#242424]">
-        {value}
-      </p>
-    </div>
   );
 }
 

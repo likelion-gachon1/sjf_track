@@ -9,9 +9,9 @@ import { track } from "@/lib/analytics";
 import { usePortalFlow } from "@/lib/FlowContext";
 import { usePortalRuntime } from "@/lib/PortalRuntime";
 
-// 08 QR HANDOFF — 사진/관심 제품을 모바일에서 이어받도록 QR 을 보여줍니다.
+// 08 QR HANDOFF — 사진을 모바일에서 이어받도록 QR 을 보여줍니다.
 // 촬영 사진은 앞 화면(09 MOMENT)에서 이미 크게 보여줬습니다. "다음"으로 마지막
-// 화면(TODAY'S MCM / SAVED ITEMS)으로 넘어갑니다.
+// 화면(TODAY'S MCM)으로 넘어갑니다.
 export default function StepHandoff() {
   const { state, dispatch } = usePortalFlow();
   const runtime = usePortalRuntime();
@@ -104,8 +104,8 @@ export default function StepHandoff() {
           </a>
         )}
 
-        {/* 부스의 마지막 화면입니다. 관심 제품 저장은 QR 로 넘어간 폰에서 이어집니다
-            (/m/{sessionId}/shop) — 부스 화면은 다음 고객을 위해 비워둬야 합니다. */}
+        {/* 부스의 마지막 화면입니다. 사진 저장은 QR 로 넘어간 폰에서 이어집니다
+            (/m/{sessionId}/photo) — 부스 화면은 다음 고객을 위해 비워둬야 합니다. */}
         <button
           type="button"
           onClick={handleRestart}

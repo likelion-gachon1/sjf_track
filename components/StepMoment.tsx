@@ -58,39 +58,35 @@ export default function StepMoment() {
     }
   }, [dispatch, state]);
 
+  const choice = findProductChoice(state.productId, state.colorwayKey);
+  const world = state.selectedWorldId ? WORLDS[state.selectedWorldId] : null;
+  const pointColor = choice?.colorway.hex ?? "#0a0a0a";
+
+  // MCM TRAVEL PASSPORT 발급 — 마운트 시 한 번, AI 멘트를 요청해 화면에 표시합니다.
+  const [passport, setPassport] = useState<PassportData | null>(null);
+
   // StrictMode 이중 마운트로 두 번 올라가지 않게 ref 로 최초 1회만 실행합니다.
   const startedRef = useRef(false);
   useEffect(() => {
     if (startedRef.current) return;
     startedRef.current = true;
+
+    if (choice && world && state.answers.mood && state.answers.journey) {
+      void requestPassport({
+        colorwayKey: choice.colorway.key,
+        colorwayLabel: choice.colorway.label,
+        productName: choice.product.name,
+        worldDisplayName: world.displayName,
+        worldName: world.name,
+        mood: state.answers.mood,
+        journey: state.answers.journey,
+        // 04에서 AI가 읽어낸 실제 착장 — 카피가 오늘 입고 온 옷을 반영하게 합니다.
+        outfitColorName: state.moodAnalysis?.dominantColor.name,
+        outfitDescription: state.moodAnalysis?.description,
+      }).then(setPassport);
+    }
+
     void runUpload();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const choice = findProductChoice(state.productId, state.colorwayKey);
-  const world = state.selectedWorldId ? WORLDS[state.selectedWorldId] : null;
-  const pointColor = choice?.colorway.hex ?? "#0a0a0a";
-
-  // MCM TRAVEL PASSPORT 발급 — 마운트 시 한 번, AI 멘트를 요청합니다.
-  const [passport, setPassport] = useState<PassportData | null>(null);
-  const passportRef = useRef(false);
-  useEffect(() => {
-    if (passportRef.current) return;
-    if (!choice || !world || !state.answers.mood || !state.answers.journey) return;
-    passportRef.current = true;
-
-    void requestPassport({
-      colorwayKey: choice.colorway.key,
-      colorwayLabel: choice.colorway.label,
-      productName: choice.product.name,
-      worldDisplayName: world.displayName,
-      worldName: world.name,
-      mood: state.answers.mood,
-      journey: state.answers.journey,
-      // 04에서 AI가 읽어낸 실제 착장 — 카피가 오늘 입고 온 옷을 반영하게 합니다.
-      outfitColorName: state.moodAnalysis?.dominantColor.name,
-      outfitDescription: state.moodAnalysis?.description,
-    }).then(setPassport);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

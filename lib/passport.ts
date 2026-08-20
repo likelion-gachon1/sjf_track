@@ -14,9 +14,7 @@
 // 네트워크 실패·키 미설정·오프라인이면 아래 폴백으로 자동 대체돼 부스가 죽지 않습니다.
 // =============================================================================
 
-import { findProductChoice } from "@/config/products.config";
-import { WORLDS } from "@/config/portal.config";
-import type { ColorwayKey, JourneyKey, MoodKey, WorldId } from "@/lib/types";
+import type { ColorwayKey, JourneyKey, MoodKey } from "@/lib/types";
 
 /** MCM 창립 도시. 모든 여행의 출발지로 고정합니다. */
 export const PASSPORT_DEPARTURE = "MUNICH";
@@ -137,65 +135,4 @@ export async function requestPassport(input: PassportInput): Promise<PassportDat
     console.warn("[portal] 여권 AI 멘트 실패 — 폴백 문구로 진행:", err);
     return base;
   }
-}
-
-// -----------------------------------------------------------------------------
-// 모바일(QR) 결과 페이지에서 여권 복원
-// -----------------------------------------------------------------------------
-
-/** 세션 응답에서 여권을 되살리는 데 필요한 필드만 추린 모양. */
-export interface PassportSessionFields {
-  productId: string;
-  colorwayKey: string;
-  mood: string;
-  journey: string;
-  worldId: string;
-  /** 부스에서 만든 AI 멘트를 백엔드가 보관해 돌려주는 경우에만 채워집니다. */
-  travelType?: string;
-  reason?: string;
-}
-
-function isMoodKey(v: string): v is MoodKey {
-  return v === "light" || v === "calm" || v === "bold";
-}
-
-function isJourneyKey(v: string): v is JourneyKey {
-  return v === "explore" || v === "culture" || v === "relax";
-}
-
-function isColorwayKey(v: string): v is ColorwayKey {
-  return v === "pink" || v === "beige";
-}
-
-/**
- * QR 결과 페이지용 여권 복원.
- *
- * 모바일에서는 **AI를 다시 부르지 않습니다.** 사진을 보러 온 사람이 로딩을 기다릴
- * 이유가 없고, 다시 부르면 어차피 부스에서 본 문장과 다른 문장이 나오기 때문입니다.
- * 그래서 결정적인 폴백 문구로 조립하고, 백엔드가 travelType/reason 을 실어주기
- * 시작하면 그 값이 그대로 부스와 동일한 문장으로 덮어써집니다.
- *
- * 값이 하나라도 어긋나면 null — 화면에서 여권 카드만 조용히 빼면 됩니다.
- */
-export function passportFromSession(s: PassportSessionFields): PassportData | null {
-  const world = WORLDS[s.worldId as WorldId];
-  const choice = findProductChoice(s.productId, s.colorwayKey);
-  if (!world || !choice) return null;
-  if (!isMoodKey(s.mood) || !isJourneyKey(s.journey)) return null;
-  if (!isColorwayKey(s.colorwayKey)) return null;
-
-  const base = buildFallbackPassport({
-    colorwayKey: s.colorwayKey,
-    colorwayLabel: choice.colorway.label,
-    productName: choice.product.name,
-    worldDisplayName: world.displayName,
-    worldName: world.name,
-    mood: s.mood,
-    journey: s.journey,
-  });
-
-  if (s.travelType && s.reason) {
-    return { ...base, travelType: s.travelType, reason: s.reason, source: "ai" };
-  }
-  return base;
 }

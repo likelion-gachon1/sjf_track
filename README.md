@@ -170,7 +170,7 @@ npm run dev
 
 ## 플로우 (부스 9화면 + 모바일 2화면)
 
-부스 화면은 **08 QR 에서 끝납니다.** 사진 저장과 관심 제품 저장은 QR 로 넘어간
+부스 화면은 **08 QR 에서 끝납니다.** 사진 저장은 QR 로 넘어간
 **방문객 폰**에서 이어지고, 부스는 "처음으로"로 다음 고객을 맞습니다.
 
 ```
@@ -178,7 +178,7 @@ npm run dev
         → 06 REVEAL → 07 EXPERIENCE(촬영) → 09 MOMENT → 08 QR → 처음으로
 
 [폰]    QR 스캔 → /m/{sessionId}        사진 확인 · 저장
-                → /m/{sessionId}/shop   TODAY'S MCM · SAVED ITEMS
+                → /m/{sessionId}/shop   오늘 함께한 MCM (체험 제품 안내)
 ```
 
 `#` 는 와이어프레임 번호라 **09 MOMENT 가 08 QR 보다 앞**에 옵니다
@@ -201,14 +201,10 @@ QR 로 이어지는 모바일 화면은 아래 두 개입니다.
 | 경로 | 화면 | 파일 |
 |---|---|---|
 | `/m/{sessionId}` | 촬영 사진 확인 · 저장 → "다음" | `app/m/[sessionId]/page.tsx` |
-| `/m/{sessionId}/shop` | TODAY'S MCM · SAVED ITEMS · 관심 제품 저장 | `app/m/[sessionId]/shop/page.tsx` |
+| `/m/{sessionId}/shop` | 오늘 함께한 MCM — 체험한 제품 안내 · 제품 자세히 보기 | `app/m/[sessionId]/shop/page.tsx` |
 
 모바일 화면은 부스의 `FlowContext` 에 접근할 수 없으므로, 어떤 제품을 골랐는지는
 `GET /api/v1/sessions/{id}` 응답의 `productId` / `colorwayKey` 로 알아냅니다.
-
-> ⚠️ **관심 제품 저장은 아직 서버에 남지 않습니다.** 저장용 API 가 없어 폰 안에서만
-> 유지되고(새로고침하면 풀립니다) `product_interest_saved` 이벤트만 남습니다.
-> SAVED ITEMS 도 `config/products.config.ts` 의 `SAVED_ITEMS` 샘플 고정값입니다.
 
 상태는 `lib/FlowContext.tsx` 의 `useReducer` 로 관리되며 라우팅 없이 한 페이지에서
 전환됩니다. 화면 전환 책임은 리듀서에 있고, 각 전환은 예상한 단계에서만 일어나므로
@@ -221,7 +217,7 @@ QR 로 이어지는 모바일 화면은 아래 두 개입니다.
 - `COPY` — 화면에 보이는 모든 문구 (`\n` 은 줄바꿈으로 렌더링됩니다)
 - `JOURNEY_QUESTION` — 03 화면의 질문과 선택지
 - `MOOD_QUESTION` — 무드 3종의 **라벨 표** (버튼이 아닙니다 — 무드는 04에서 AI가 판정)
-- `journeyCardImage()` — 03 카드 미리보기 사진 경로 (`public/place/{컬러웨이}/`, 무드 축 없음)
+- `journeyCardImage()` — 03 카드 미리보기 사진 경로 (`public/place/`, 컬러웨이·무드 축 없이 통합 이미지 3장)
 - `MOOD_ANALYSIS_CONFIG` — 04 무드 분석 파라미터 (캡처 크기·샘플 영역·폴백 임계값)
 - `OPENING_STAGES` — 05 로딩 화면의 단계별 문구 + 지속 시간 (이 구간 길이의 유일한 노브)
 - `WORLDS` — World 목록 (표기명, 내부 축, gradient, 배경 이미지, BGM 경로)
@@ -570,15 +566,12 @@ UUID 로 검증하므로 **폴백도 UUID 형식이어야 합니다.**
 
 `lib/analytics.ts` 의 `track()` 이 단계별로 호출됩니다. 아직 전송은 하지 않고
 `console.info("[portal] ...")` + `window.__portalEvents` 버퍼에만 남깁니다.
-와이어프레임 KPI 4종 중 QR 노출(`qr_displayed`)·사진 저장(`photo_download_clicked`)만
-호출 지점이 있고, **모바일 SHOP 화면의 관심 제품 저장(`product_interest_saved`)과
-제품 상세 확인(`product_detail_viewed`)은 타입 정의뿐**입니다. 두 버튼 모두 지금은
-MCM 스토어로 나가는 외부 링크라 `app/m/**` 에서는 `track()` 을 호출하지 않습니다.
+QR 노출(`qr_displayed`)·사진 저장(`photo_download_clicked`)만 호출 지점이 있고,
+**모바일 SHOP 화면의 제품 상세 확인(`product_detail_viewed`)은 타입 정의뿐**입니다.
+지금은 MCM 스토어로 나가는 외부 링크라 `app/m/**` 에서는 `track()` 을 호출하지 않습니다.
 
 ## 다음 단계 / 알려진 한계
 
-- **관심 제품 저장이 서버에 남지 않습니다.** 모바일 화면은 붙었지만 저장용 API 가 없어
-  폰 안에서만 유지되고, 제품 상세 화면(`product_detail_viewed`)은 아직 없습니다.
 - **업로드에 끝내 실패하면 QR 이 무효합니다.** 재시도해도 안 되면 앱은 임시 QR 로 계속
   진행되는데, 그 QR 은 서버에 없는 세션을 가리켜 폰에서 "사진을 찾을 수 없어요"(404)가
   뜹니다. 사진 자체는 08 화면의 "사진 저장하기"로 로컬 저장이 가능합니다.
@@ -611,7 +604,7 @@ AI는 **보고 판정하거나 문장을 쓰는** 두 곳에만 쓰입니다. �
 
 | 파일 | 역할 |
 |---|---|
-| `components/StepMood.tsx` | 2단계 화면 — `guide` → `analyzing` |
+| `components/StepMood.tsx` | 가이드 화면 하나 — 분석 중엔 버튼만 로딩 상태로 전환 |
 | `lib/moodAnalysis.ts` | 프레임 캡처, 서버 호출, **로컬 색 분석 폴백** |
 | `app/api/analyze-mood/route.ts` | 서버 전용 OpenAI Vision 호출 (`detail: "low"`) |
 | `MOOD_ANALYSIS_CONFIG` | 캡처 크기 · 샘플 영역 · 폴백 임계값 |
@@ -663,22 +656,20 @@ vividMinChroma: 0.6,                        // 채도 높은 포인트 컬러 �
 (`resolveWorld`)도 배경 선택(`comboBackgroundImage`)도 로컬 계산이라 즉시 끝나서,
 그냥 두면 "AI가 제대로 본 게 맞나" 싶을 만큼 순식간에 지나갑니다.
 
-**체감 시간은 오직 "최소 표시 시간" 으로 조절합니다.**
+**체감 시간은 오직 05 의 "최소 표시 시간" 으로 조절합니다.** 04 에는 전용 대기 화면이
+없습니다 — 가이드 화면에 머문 채 버튼만 로딩 상태(`COPY.moodAnalyzing`)로 바뀌고, 분석이
+끝나면 바로 05 로 넘어갑니다.
 
-- **04 analyzing** — `ANALYZING_MIN_VISIBLE_MS`(2,200ms, `StepMood.tsx`). 실제 API 호출이
-  보통 1.8~3.1초라, 이 바닥은 카메라 실패로 로컬 폴백이 즉시 끝났을 때 주로 작동합니다.
-- **05 opening** — `OPENING_STAGES`(`portal.config.ts`, 합계 **10,000ms**). 문구와 지속
+- **05 opening** — `OPENING_STAGES`(`portal.config.ts`, 합계 **6,000ms**). 문구와 지속
   시간을 한 표로 묶어 뒀습니다. 화면의 진행 점은 항목 수에 맞춰 자동으로 늘어나므로,
   단계를 더하거나 빼도 컴포넌트는 안 고쳐도 됩니다.
 
 ```
-2.5s  고객님의 무드를 확인했어요.        ●○○
-3.5s  무드에 어울리는 도시를 찾고 있어요.  ●●○
-4.0s  도착할 장면을 준비하고 있어요.      ●●●
+3.0s  AI가 고객님의 무드를 분석하고 있어요  ●○
+3.0s  고객님의 World로 데려다 드릴게요      ●●
 ```
 
-실측(카메라 실패 → 로컬 폴백 기준) 분석 시작에서 06 리빌까지 **약 12.7초**. 실제 카메라·AI
-판정이 붙으면 13초 안팎입니다. 길다고 느끼면 `OPENING_STAGES` 의 ms 만 줄이세요.
+길다고 느끼면 `OPENING_STAGES` 의 ms 만 줄이세요.
 
 > ⚠️ **모델을 무겁게 만들어 시간을 벌지 마세요.** 모델 지연은 요청마다 들쭉날쭉해
 > 연출 길이의 기준이 될 수 없고, 위 최소 표시 시간 아래로 어차피 가려집니다.
@@ -758,39 +749,14 @@ QR로 이어지는 모바일 결과 페이지를 연결합니다. 백엔드가 �
 > 로컬 테스트 시 백엔드 `ALLOWED_ORIGINS` 에 `http://localhost:3000` 허용이 필요합니다.
 > 폰/배포 테스트는 위 "환경 변수" 절 참고.
 
-### 🔴 BE 요청 — 여권 카피(`travelType` / `reason`) 저장·반환
+### 여권 카피(`travelType` / `reason`) — 부스 전용, 저장·반환 없음
 
-**모바일 사진 페이지(`/m/{sessionId}/photo`)에 여권 카드가 사진 위에 함께 나갑니다.**
-그런데 여권의 AI 두 줄은 **지금 어디에도 저장되지 않습니다.** 09 화면에서 `/api/passport`
-가 만들어 브라우저 메모리에만 있다가 부스를 떠나면 사라집니다. 그래서 모바일에서는
-같은 값으로 계산한 **폴백 문구**가 나가고, 손님이 부스에서 본 문장과 달라집니다.
+MCM TRAVEL PASSPORT 의 "여행 유형 / 추천 이유" 두 줄은 **부스 09 화면에서만** 보여줍니다.
+`/api/passport` 가 그 자리에서 즉석으로 만들어 `components/StepMoment.tsx` 의 `Passport`
+컴포넌트에 표시할 뿐, 백엔드로 전송하지도 세션에 저장하지도 않습니다.
 
-**요청 내용 — 필드 2개 추가:**
-
-1. `POST /api/v1/sessions` 의 `metadata` 에 아래 두 값을 받아 세션과 함께 저장
-2. `GET /api/v1/sessions/{sessionId}` 응답에 그대로 반환
-
-| 필드 | 타입 | 예시 | 비고 |
-|---|---|---|---|
-| `travelType` | `string` | `"CULTURE NOMAD"` | 영문 대문자 2단어. 여권의 "여행 유형" |
-| `reason` | `string` | `"대담한 컬러와 자유로운 이동성"` | 한국어 한 줄(14~24자). 여권의 "추천 이유" |
-
-- 둘 다 **선택(nullable)** 로 잡아주세요. AI 실패 시 부스가 폴백 문구를 보내거나 아예 안
-  보낼 수 있습니다.
-- 검증·가공 없이 **받은 문자열 그대로** 저장·반환하면 됩니다 (길이·톤 정리는 프론트
-  `normalizeReason()` 이 이미 끝냅니다).
-
-**FE는 이미 준비돼 있습니다 — 백엔드가 실어주면 코드 수정 없이 바로 반영됩니다.**
-
-| 파일 | 준비된 것 |
-|---|---|
-| `lib/api.ts` | `SessionResponse` 에 `travelType?` / `reason?` 선언 |
-| `lib/passport.ts` | `passportFromSession()` — 두 값이 있으면 그걸 쓰고(`source: "ai"`), 없으면 폴백 문구로 조립 |
-| `app/m/[sessionId]/photo/page.tsx` | 여권 카드(`MobilePassport`) 렌더 |
-
-> ⚠️ 모바일에서 `/api/passport` 를 **다시 부르지 않습니다.** 사진 보러 온 사람에게 로딩을
-> 물릴 이유가 없고, 다시 불러도 부스에서 본 문장과 다른 문장이 나오기 때문입니다. 부스와
-> 똑같은 카피를 보여주는 방법은 위 두 필드를 백엔드가 보관하는 것 하나뿐입니다.
->
-> 출발지 · 도착지 · 동행 제품 3줄은 세션 값(`worldId` / `productId` / `colorwayKey`)에서
-> 그대로 복원되므로 **지금도 부스와 100% 동일**합니다. 이번 요청은 나머지 2줄 얘기입니다.
+- 모바일 "촬영한 사진 보러가기" 페이지(`/m/{sessionId}/photo`)에는 **여권 카드가 없습니다.**
+  촬영 사진과 "사진 저장하기" 버튼만 보여줍니다.
+- `POST /api/v1/sessions` metadata 와 `GET /api/v1/sessions/{id}` 응답에는 `travelType`/
+  `reason` 필드가 없습니다(백엔드 `PortalSession` 엔티티에도 해당 컬럼이 없습니다).
+- 부스 화면을 벗어나면 그 문장을 다시 볼 방법이 없다는 뜻입니다 — 의도된 동작입니다.

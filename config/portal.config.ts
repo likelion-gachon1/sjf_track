@@ -43,7 +43,7 @@ export const COPY = {
   moodSubline: "AI가 의상의 색과 톤을 읽어 어울리는 무드를 찾아드려요.",
   moodGuide: "상의가 가이드 영역 안에 오도록 서주세요.",
   moodScanButton: "AI 무드 분석 시작",
-  moodAnalyzing: "AI가 고객님의 스타일을\n분석하고 있어요.",
+  moodAnalyzing: "분석하고 있어요...",
   /** 카메라를 끝내 못 켰을 때 — 손님을 세워두지 않고 폴백 결과로 진행하는 출구. */
   moodCameraSkip: "이대로 진행하기",
 
@@ -84,17 +84,11 @@ export const COPY = {
 
   // QR HANDOFF
   handoffHeading: "체험이 완료되었습니다.",
-  handoffCaption: "촬영한 사진을 저장하거나\n관심 제품을 저장하려면\nQR을 스캔해 주세요.",
+  handoffCaption: "촬영한 사진을 저장하려면\nQR을 스캔해 주세요.",
   downloadButton: "사진 저장하기",
   restartButton: "처음으로",
   /** `{expiry}` 자리에 만료 시각이 들어갑니다. */
   handoffExpiry: "이 QR은 {expiry}까지 유효합니다.",
-
-  // TODAY'S MCM / SAVED ITEMS — 부스가 아니라 QR 로 넘어간 폰에서 쓰입니다.
-  todaysHeading: "TODAY'S MCM",
-  savedHeading: "SAVED ITEMS",
-  saveInterestButton: "관심 제품 저장하기",
-  savedInterestButton: "관심 제품에 저장되었습니다!",
 
   // 카메라 / 합성 상태 문구
   cameraLoading: "카메라 준비 중...",
@@ -112,9 +106,8 @@ export const COPY = {
 // --- 1-1. 05 PORTAL OPENING 단계별 문구 + 지속 시간 ---
 // ms 합계 = 화면의 최소 표시 시간. 단계를 더하거나 빼면 진행 점이 자동 조정됩니다.
 export const OPENING_STAGES = [
-  { ms: 2_500, message: "고객님의 무드를\n확인했어요." },
-  { ms: 3_500, message: "무드에 어울리는\n도시를 찾고 있어요." },
-  { ms: 4_000, message: "도착할 장면을\n준비하고 있어요." },
+  { ms: 3_000, message: "AI가 고객님의 무드를\n분석하고 있어요" },
+  { ms: 3_000, message: "고객님의 World로\n데려다 드릴게요" },
 ] as const;
 
 /** OPENING_STAGES 를 다 보여주는 데 걸리는 시간 = 05 화면의 최소 표시 시간. */
@@ -386,7 +379,7 @@ export function debugMappingTable(): MappingTableRow[] {
 
 // --- 조합 전용 실사 배경 ---
 // comboBackgroundImage() → public/worlds/{색}/  (07 촬영 합성)
-// journeyCardImage()     → public/place/{색}/   (03 카드 미리보기)
+// journeyCardImage()     → public/place/         (03 카드 미리보기, 컬러웨이 통합)
 
 // 내부 키 → 파일명 토큰.
 const MOOD_IMG_TOKEN: Record<MoodKey, string> = {
@@ -419,13 +412,9 @@ const JOURNEY_PLACE_TOKEN: Record<JourneyKey, string> = {
   relax: "calm",
 };
 
-/** 03 활동 선택 카드 미리보기 경로 — /place/{색}/{색}_{여정토큰}.png */
-export function journeyCardImage(
-  colorway: ColorwayKey | null,
-  journey: JourneyKey
-): string | undefined {
-  if (!colorway) return undefined;
-  return `/place/${colorway}/${colorway}_${JOURNEY_PLACE_TOKEN[journey]}.png`;
+/** 03 활동 선택 카드 미리보기 경로 — /place/{여정토큰}.png (컬러웨이 무관, 통합 이미지) */
+export function journeyCardImage(journey: JourneyKey): string {
+  return `/place/${JOURNEY_PLACE_TOKEN[journey]}.png`;
 }
 
 /**

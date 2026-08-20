@@ -132,15 +132,6 @@ export default function MobileShopPage({
               >
                 제품 자세히 보기
               </a>
-
-              <a
-                href={colorway?.storeUrl ?? "https://kr.mcmworldwide.com"}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex h-[52px] w-full items-center justify-center rounded-2xl bg-[rgba(220,220,220,0.3)] text-center text-[15px] font-semibold uppercase text-[#242424]"
-              >
-                관심 제품 저장하기
-              </a>
             </div>
           </>
         )}

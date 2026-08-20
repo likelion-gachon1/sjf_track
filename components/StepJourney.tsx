@@ -9,7 +9,7 @@ import { useHoverRipple } from "@/lib/useHoverRipple";
 import { useRipple } from "@/lib/useRipple";
 import StepFrame from "./StepFrame";
 
-// 03 TRAVEL STYLE (02 / 03) — public/place/{컬러웨이}/ 실사 사진 카드 3장.
+// 03 TRAVEL STYLE (02 / 03) — public/place/ 통합 실사 사진 카드 3장 (컬러웨이 무관).
 // 선택과 동시에 04 무드 분석으로 이동합니다.
 export default function StepJourney() {
   const { state, dispatch } = usePortalFlow();
@@ -29,7 +29,7 @@ export default function StepJourney() {
           <JourneyCard
             key={option.key}
             option={option}
-            image={journeyCardImage(state.colorwayKey, option.key)}
+            image={journeyCardImage(option.key)}
             disabled={isTransitioning}
             isSelected={selectedKey === option.key}
             isDimmed={selectedKey !== null && selectedKey !== option.key}

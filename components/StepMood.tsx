@@ -14,8 +14,9 @@ import StepFrame from "./StepFrame";
 
 // 04 MOOD (03 / 03) — 무드를 고르는 화면이 아니라 **AI가 판정하는** 화면입니다.
 //
-//   guide     : 라이브 프리뷰 + 상의 가이드 프레임 + [AI 무드 분석 시작]
-//   analyzing : 05 와 같은 톤의 전체화면 로딩 → 판정이 끝나면 바로 05 로 넘어감
+// 전용 "분석 중" 전체화면은 없습니다 — 05 OPENING 의 첫 단계가 같은 문구를
+// 보여주므로, 여기서는 가이드 화면에 머무른 채 버튼만 로딩 상태로 바꾸고
+// 분석이 끝나면 바로 05 로 넘어갑니다.
 //
 // 판정 결과는 화면에 보여주지 않습니다. state.moodAnalysis 에 담겨 World 매칭과
 // 09 여권 카피에만 쓰입니다.
@@ -23,45 +24,29 @@ import StepFrame from "./StepFrame";
 // 카메라는 PortalRuntime 이 소유하는 스트림을 useCamera 로 빌려 씁니다. 여기서
 // 먼저 확보해두면 05 프리로드와 07 촬영이 같은 스트림을 재사용하므로, 권한 팝업은
 // 이 화면에서 한 번만 뜨고 07 진입은 오히려 빨라집니다.
-type Phase = "guide" | "analyzing";
-
-/**
- * 판정이 이보다 빨리 끝나도 이 화면은 최소 이만큼 떠 있습니다 — 로컬 폴백은
- * 즉시 끝나서 이게 없으면 화면이 깜빡이고 지나갑니다.
- * (05 는 같은 역할을 OPENING_STAGES 합계가 합니다.)
- */
-const ANALYZING_MIN_VISIBLE_MS = 2200;
 
 export default function StepMood() {
   const { dispatch } = usePortalFlow();
   const { videoRef, status, errorMessage, retry } = useCamera();
 
-  const [phase, setPhase] = useState<Phase>("guide");
+  const [analyzing, setAnalyzing] = useState(false);
   // 분석은 한 번만 — 버튼 연타로 요청이 겹치지 않게 막습니다.
   const runningRef = useRef(false);
 
   const runAnalysis = useCallback(async () => {
     if (runningRef.current) return;
     runningRef.current = true;
-    setPhase("analyzing");
+    setAnalyzing(true);
 
     const video = videoRef.current;
     const frame = video ? captureAnalysisFrame(video) : null;
 
-    const minVisible = new Promise<void>((resolve) =>
-      window.setTimeout(resolve, ANALYZING_MIN_VISIBLE_MS)
-    );
     // 프레임을 못 잡았으면(카메라 실패·첫 프레임 전) 서버를 부르지 않고 바로 중립값으로.
-    const [analysis] = await Promise.all([
-      frame ? requestMoodAnalysis(frame) : neutralMoodAnalysis(),
-      minVisible,
-    ]);
+    const analysis = frame ? await requestMoodAnalysis(frame) : await neutralMoodAnalysis();
 
     track({ name: "mood_analyzed", value: analysis.mood, source: analysis.source });
     dispatch({ type: "ANALYZE_MOOD", result: analysis });
   }, [dispatch, videoRef]);
-
-  if (phase === "analyzing") return <AnalyzingScreen />;
 
   const cameraFailed = status === "error";
   const waiting = status === "idle" || status === "requesting";
@@ -108,15 +93,15 @@ export default function StepMood() {
 
       <button
         type="button"
-        disabled={status !== "ready"}
+        disabled={status !== "ready" || analyzing}
         onClick={() => void runAnalysis()}
         className="mt-6 rounded-full bg-ink px-12 py-3 text-sm tracking-widest2 text-paper transition-opacity hover:opacity-85 disabled:opacity-30"
       >
-        {COPY.moodScanButton}
+        {analyzing ? COPY.moodAnalyzing : COPY.moodScanButton}
       </button>
 
       {/* 카메라를 끝내 못 켰을 때의 출구 — 손님을 세워두지 않고 폴백으로 진행합니다. */}
-      {cameraFailed && (
+      {cameraFailed && !analyzing && (
         <button
           type="button"
           onClick={() => void runAnalysis()}
@@ -150,53 +135,6 @@ function Overlay({ children }: { children: React.ReactNode }) {
   return (
     <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-black/60 px-8 text-center text-white backdrop-blur">
       {children}
-    </div>
-  );
-}
-
-// 05 PORTAL OPENING 과 같은 연출 톤을 씁니다 — 분석 대기와 프리로드 대기가
-// 시각적으로 이어지도록.
-function AnalyzingScreen() {
-  return (
-    <div
-      className="flex h-full min-h-screen flex-col items-center justify-center gap-10 bg-cover bg-center px-8 text-center"
-      style={{
-        backgroundImage:
-          "linear-gradient(rgba(250,248,245,0.35), rgba(250,248,245,0.35)), url(/ui/load.jpg), linear-gradient(#faf8f5, #faf8f5)",
-      }}
-    >
-      <svg
-        viewBox="0 0 132 132"
-        className="h-[8.25rem] w-[8.25rem] animate-spin"
-        style={{ animationDuration: "7s" }}
-        aria-hidden
-      >
-        <circle
-          cx="66"
-          cy="66"
-          r="58"
-          fill="none"
-          stroke="#0a0a0a"
-          strokeOpacity="0.22"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeDasharray="2 12"
-        />
-      </svg>
-
-      <p className="whitespace-pre-line text-lg leading-relaxed text-ink/90">
-        {COPY.moodAnalyzing}
-      </p>
-
-      <div className="flex gap-2.5">
-        {[0, 1, 2].map((i) => (
-          <span
-            key={i}
-            className="h-1.5 w-1.5 animate-pulse rounded-full bg-ink/30"
-            style={{ animationDelay: `${i * 220}ms`, animationDuration: "1.4s" }}
-          />
-        ))}
-      </div>
     </div>
   );
 }
