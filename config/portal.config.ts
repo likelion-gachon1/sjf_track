@@ -68,7 +68,7 @@ export const COPY = {
   passportTitle: "MCM TRAVEL PASSPORT",
   passportDeparture: "출발지",
   passportArrival: "도착지",
-  passportType: "여행 유형",
+  passportShotAt: "촬영 일시",
   passportCompanion: "동행 제품",
   passportReasonLabel: "추천 이유",
   passportLoading: "여권 발급 중...",
