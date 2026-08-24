@@ -1,0 +1,11 @@
+services:
+  sjf_track:
+    build:
+      context: .
+      args:
+        NEXT_PUBLIC_API_BASE: https://mcm-portal.duckdns.org
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env.production
+    restart: unless-stopped

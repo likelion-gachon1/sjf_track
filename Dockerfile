@@ -13,6 +13,11 @@ RUN npm run build
 FROM node:20-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
+
+# 런타임 환경변수 (실제 값은 docker run -e 또는 배포 플랫폼에서 주입)
+ENV OPENAI_API_KEY=""
+ENV NEXT_PUBLIC_PORTAL_HOST=""
+
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/.next ./.next
