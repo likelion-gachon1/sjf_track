@@ -1,5 +1,6 @@
 # dependencies
 /node_modules
+/public/onnx/
 
 # next.js
 /.next/

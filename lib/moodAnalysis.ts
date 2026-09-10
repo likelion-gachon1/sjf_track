@@ -17,13 +17,24 @@ export function captureAnalysisFrame(video: HTMLVideoElement): string | null {
   const scale = Math.min(1, MOOD_ANALYSIS_CONFIG.captureWidth / sourceWidth);
   const canvas = document.createElement("canvas");
   canvas.width = Math.max(1, Math.round(sourceWidth * scale));
-  canvas.height = Math.max(1, Math.round(sourceHeight * scale));
+  canvas.height = Math.max(1, Math.round(canvas.width * 20 / 28));
 
   const ctx = canvas.getContext("2d");
   if (!ctx) return null;
 
-  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  drawMoodFrame(ctx, video, canvas.width, canvas.height);
   return canvas.toDataURL("image/jpeg", MOOD_ANALYSIS_CONFIG.jpegQuality);
+}
+
+/** 프리뷰의 object-cover(28:20)와 감지·분석 프레임의 영역을 맞춥니다. */
+export function drawMoodFrame(
+  ctx: CanvasRenderingContext2D, video: HTMLVideoElement, width: number, height: number,
+) {
+  const scale = Math.max(width / video.videoWidth, height / video.videoHeight);
+  const sw = width / scale;
+  const sh = height / scale;
+  ctx.drawImage(video, (video.videoWidth - sw) / 2, (video.videoHeight - sh) / 2,
+    sw, sh, 0, 0, width, height);
 }
 
 // --- 2. 로컬 폴백 — 캔버스 픽셀만으로 판정 (네트워크·난수 없음) ---

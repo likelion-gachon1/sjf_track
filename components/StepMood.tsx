@@ -2,51 +2,25 @@
 
 import { useCallback, useRef, useState } from "react";
 import { COPY, MOOD_ANALYSIS_CONFIG } from "@/config/portal.config";
-import { track } from "@/lib/analytics";
 import { usePortalFlow } from "@/lib/FlowContext";
-import {
-  captureAnalysisFrame,
-  neutralMoodAnalysis,
-  requestMoodAnalysis,
-} from "@/lib/moodAnalysis";
 import { useCamera } from "@/lib/useCamera";
+import { useClothingDetection } from "@/lib/useClothingDetection";
 import StepFrame from "./StepFrame";
 
-// 04 MOOD (03 / 03) — 무드를 고르는 화면이 아니라 **AI가 판정하는** 화면입니다.
-//
-// 전용 "분석 중" 전체화면은 없습니다 — 05 OPENING 의 첫 단계가 같은 문구를
-// 보여주므로, 여기서는 가이드 화면에 머무른 채 버튼만 로딩 상태로 바꾸고
-// 분석이 끝나면 바로 05 로 넘어갑니다.
-//
-// 판정 결과는 화면에 보여주지 않습니다. state.moodAnalysis 에 담겨 World 매칭과
-// 09 여권 카피에만 쓰입니다.
-//
-// 카메라는 PortalRuntime 이 소유하는 스트림을 useCamera 로 빌려 씁니다. 여기서
-// 먼저 확보해두면 05 프리로드와 07 촬영이 같은 스트림을 재사용하므로, 권한 팝업은
-// 이 화면에서 한 번만 뜨고 07 진입은 오히려 빨라집니다.
+// 04: 의류 감지와 캡처만 담당합니다. 실제 무드 분석은 05 OPENING에서 실행합니다.
 
 export default function StepMood() {
   const { dispatch } = usePortalFlow();
   const { videoRef, status, errorMessage, retry } = useCamera();
 
-  const [analyzing, setAnalyzing] = useState(false);
-  // 분석은 한 번만 — 버튼 연타로 요청이 겹치지 않게 막습니다.
+  const [retryToken, setRetryToken] = useState(0);
   const runningRef = useRef(false);
-
-  const runAnalysis = useCallback(async () => {
+  const startOpening = useCallback((frame: string | null) => {
     if (runningRef.current) return;
     runningRef.current = true;
-    setAnalyzing(true);
-
-    const video = videoRef.current;
-    const frame = video ? captureAnalysisFrame(video) : null;
-
-    // 프레임을 못 잡았으면(카메라 실패·첫 프레임 전) 서버를 부르지 않고 바로 중립값으로.
-    const analysis = frame ? await requestMoodAnalysis(frame) : await neutralMoodAnalysis();
-
-    track({ name: "mood_analyzed", value: analysis.mood, source: analysis.source });
-    dispatch({ type: "ANALYZE_MOOD", result: analysis });
-  }, [dispatch, videoRef]);
+    dispatch({ type: "START_MOOD_ANALYSIS", frame });
+  }, [dispatch]);
+  const detection = useClothingDetection(videoRef, status === "ready", startOpening, retryToken);
 
   const cameraFailed = status === "error";
   const waiting = status === "idle" || status === "requesting";
@@ -63,7 +37,7 @@ export default function StepMood() {
           className="h-full w-full -scale-x-100 object-cover"
         />
 
-        {status === "ready" && <GuideFrame />}
+        {status === "ready" && <GuideFrame detected={detection.status === "holding"} />}
 
         {waiting && (
           <Overlay>
@@ -88,20 +62,35 @@ export default function StepMood() {
 
       <p className="mt-4 text-sm text-ink/80">{COPY.moodGuide}</p>
 
-      <button
-        type="button"
-        disabled={status !== "ready" || analyzing}
-        onClick={() => void runAnalysis()}
-        className="mt-6 rounded-full bg-ink px-12 py-3 text-sm tracking-widest2 text-paper transition-opacity hover:opacity-85 disabled:opacity-30"
-      >
-        {analyzing ? COPY.moodAnalyzing : COPY.moodScanButton}
-      </button>
+      <div className="mt-6 flex min-h-12 flex-col items-center gap-3" role="status" aria-live="polite">
+        <p className="text-sm text-ink/80">
+          {cameraFailed ? COPY.moodDetectionUnavailable :
+            waiting || detection.status === "loading" ? COPY.moodDetectionLoading :
+            detection.status === "error" ? COPY.moodDetectionUnavailable :
+            detection.status === "holding" ? COPY.moodDetected : COPY.moodDetecting}
+        </p>
+        {status === "ready" && detection.status === "holding" && (
+          <div className="h-1 w-48 overflow-hidden rounded-full bg-ink/10" aria-hidden="true">
+            <div className="h-full bg-ink transition-all duration-200" style={{ width: `${detection.progress * 100}%` }} />
+          </div>
+        )}
+      </div>
 
-      {/* 카메라를 끝내 못 켰을 때의 출구 — 손님을 세워두지 않고 폴백으로 진행합니다. */}
-      {cameraFailed && !analyzing && (
+      {status === "ready" && detection.status === "error" && (
         <button
           type="button"
-          onClick={() => void runAnalysis()}
+          onClick={() => setRetryToken((value) => value + 1)}
+          className="mt-2 text-xs text-ink/70 underline underline-offset-4 hover:text-ink/90"
+        >
+          {COPY.moodDetectionRetry}
+        </button>
+      )}
+
+      {/* 카메라를 끝내 못 켰을 때의 출구 — 손님을 세워두지 않고 폴백으로 진행합니다. */}
+      {cameraFailed && (
+        <button
+          type="button"
+          onClick={() => startOpening(null)}
           className="mt-2 text-xs text-ink/70 underline underline-offset-4 hover:text-ink/90"
         >
           {COPY.moodCameraSkip}
@@ -113,11 +102,11 @@ export default function StepMood() {
 
 // 상의가 와야 할 자리를 표시합니다. MOOD_ANALYSIS_CONFIG.sampleRegion 을 그대로
 // 쓰므로, 폴백이 실제로 색을 재는 영역과 화면 안내가 어긋나지 않습니다.
-function GuideFrame() {
+function GuideFrame({ detected }: { detected: boolean }) {
   const { x, y, w, h } = MOOD_ANALYSIS_CONFIG.sampleRegion;
   return (
     <div
-      className="pointer-events-none absolute rounded-xl border-2 border-dashed border-white/55"
+      className={`pointer-events-none absolute rounded-xl border-2 transition-colors ${detected ? "border-emerald-300" : "border-dashed border-white/55"}`}
       style={{
         left: `${x * 100}%`,
         top: `${y * 100}%`,

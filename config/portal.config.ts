@@ -39,9 +39,12 @@ export const COPY = {
   // 04 MOOD — 카메라로 의상을 찍어 AI가 무드를 판정하는 화면
   moodHeading: "오늘의 스타일을 보여주세요.",
   moodSubline: "AI가 의상의 색과 톤을 읽어 어울리는 무드를 찾아드려요.",
-  moodGuide: "상의가 가이드 영역 안에 오도록 서주세요.",
-  moodScanButton: "AI 무드 분석 시작",
-  moodAnalyzing: "분석하고 있어요...",
+  moodGuide: "상의가 가이드 안에 오도록 서주세요. 인식되면 자동으로 분석해요.",
+  moodDetectionRetry: "옷 인식 다시 시도하기",
+  moodDetectionLoading: "옷을 인식할 준비를 하고 있어요...",
+  moodDetecting: "가이드 안에서 옷을 찾고 있어요...",
+  moodDetected: "옷이 감지됐어요. 잠시 그대로 있어주세요.",
+  moodDetectionUnavailable: "옷을 인식하지 못했어요. 다시 시도해주세요.",
   /** 카메라를 끝내 못 켰을 때 — 손님을 세워두지 않고 폴백 결과로 진행하는 출구. */
   moodCameraSkip: "이대로 진행하기",
 

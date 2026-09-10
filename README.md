@@ -460,9 +460,10 @@ AI는 **보고 판정하거나 문장을 쓰는** 두 곳에만 쓰입니다. �
 
 ```
 카메라 프리뷰(가이드 프레임)
-  → [AI 무드 분석 시작] → 현재 프레임 캡처(768px JPEG)
-  → POST /api/analyze-mood  (서버가 OpenAI Vision 호출)
-  → 결과를 화면에 보여주지 않고 바로 05 로 넘어감
+  → SegFormer 의류 감지(가이드 내 45% 이상, 신뢰도 70% 이상, 연속 3프레임)
+  → 감지한 프레임을 보관하고 즉시 05 OPENING으로 이동
+  → “AI가 고객님의 무드를 분석하고 있어요”에서 POST /api/analyze-mood
+  → 분석 완료 후 World 준비 → 06 REVEAL
 ```
 
 판정 결과는 카드로 노출하지 않습니다. `state.moodAnalysis` 에 담겨 World 매칭과
@@ -470,10 +471,31 @@ AI는 **보고 판정하거나 문장을 쓰는** 두 곳에만 쓰입니다. �
 
 | 파일 | 역할 |
 |---|---|
-| `components/StepMood.tsx` | 가이드 화면 하나 — 분석 중엔 버튼만 로딩 상태로 전환 |
+| `components/StepMood.tsx` | 의류 감지 안내 · 캡처 · 즉시 opening 전환 · 인식 재시도 |
+| `lib/useClothingDetection.ts` | 카메라 샘플링 · 의류 추론 Worker 실행 · 연속 감지 |
+| `lib/clothingDetection.ts` | 의류 라벨·신뢰도·영역 점유율 검증 |
+| `lib/clothing.worker.ts` | SegFormer ONNX 모델을 브라우저 Worker에서 추론 |
+| `components/StepOpening.tsx` | 실제 무드 분석 요청 · 결과 대기 · World 준비 |
 | `lib/moodAnalysis.ts` | 프레임 캡처, 서버 호출, **로컬 색 분석 폴백** |
 | `app/api/analyze-mood/route.ts` | 서버 전용 OpenAI Vision 호출 (`detail: "low"`) |
 | `MOOD_ANALYSIS_CONFIG` | 캡처 크기 · 샘플 영역 · 폴백 임계값 |
+
+자동 인식은 ATR 의류 데이터로 학습된 [SegFormer B0](https://huggingface.co/mattmdjaga/segformer_b0_clothes)의
+[ONNX 변환본](https://huggingface.co/Xenova/segformer_b0_clothes)을 사용합니다. 상의·치마·바지·원피스만
+세며, 얼굴·머리카락·피부·가방·모자 등은 제외합니다. 확률 70% 이상인 의류 픽셀이 가이드의
+45% 이상을 차지하는 새로운 프레임이 3회 연속 확인되어야 시작합니다. 인식 누락·탭 숨김 시 초기화합니다.
+모델 예측은 확률적이므로 실제 부스의 조명·거리에서 확인해야 합니다.
+
+모델은 `public/models/clothing`에 고정 버전으로 포함되며, ONNX Runtime WASM은
+`npm run dev` / `npm run build` 전 자동 복사됩니다. Python 서버나 외부 모델 다운로드 없이 동작합니다.
+감지 프레임은 브라우저에서 처리하며, 마지막으로 의류를 확인한 프레임만 무드 분석에 전달합니다.
+인식 실패 시 재시도 버튼을 제공합니다. 카메라 자체 실패 시 기존 건너뛰기는 유지합니다.
+04 화면의 별도 분석 중 표시는 제거했습니다. 05의 첫 문구는 실제 분석 완료까지 유지하고,
+그 뒤 World 준비 문구를 표시합니다. 분석 결과가 나오기 전에는 World를 확정하지 않습니다.
+
+검증: `node --test scripts/test-clothing-detection.cjs`.
+실제 모델 브라우저 검증: Playwright를 제공하는 환경에서 로컬 서버를 3100 포트로 실행 후
+`node scripts/test-clothing-browser.cjs <astronaut.png 경로>` (scikit-image 공개 테스트 이미지).
 
 | 무드 | 내부 키 | AI 토큰 | 파일명 토큰 | 의상 특성 |
 |---|---|---|---|---|
@@ -506,9 +528,12 @@ vividMinChroma: 0.6,                        // 채도 높은 포인트 컬러 �
 
 ### 04~05 구간의 체감 시간
 
-이 구간에서 실제로 걸리는 일은 무드 판정(API 호출) 하나뿐이라 그냥 두면 순식간에
-지나갑니다. **체감 시간은 05 의 "최소 표시 시간" 으로만 조절합니다** — 04 에는 전용 대기
-화면이 없고, 가이드 화면에 머문 채 버튼만 로딩 상태(`COPY.moodAnalyzing`)로 바뀝니다.
+04 에서 의류를 자동 감지하고 05 에서 무드 판정(API 호출)을 실행합니다. World 매칭도 배경
+선택도 로컬 계산이라 즉시 끝나서, 그냥 두면 순식간에 지나갑니다.
+
+**체감 시간은 05 의 "최소 표시 시간" 으로만 조절합니다** — 04 에는 전용 대기 화면이 없고
+의류를 감지하는 즉시 05 로 넘어갑니다. 05 는 첫 문구의 최소 3초와 실제 분석 완료를 모두
+충족한 뒤 두 번째 World 안내로 넘어갑니다.
 
 05 구간 길이는 `OPENING_STAGES`(`portal.config.ts`, 합계 **6,000ms**) 한 곳에서 정합니다.
 진행 점은 항목 수에 맞춰 자동으로 늘어나므로 단계를 더하거나 빼도 컴포넌트는 그대로입니다.
