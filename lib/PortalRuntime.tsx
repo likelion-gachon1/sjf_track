@@ -25,14 +25,11 @@ interface SegmentationModuleLike {
 }
 
 /**
- * @mediapipe/selfie_segmentation 은 ES export 대신 Closure 스타일로
- * `this || self` 에 클래스를 붙입니다.
+ * @mediapipe/selfie_segmentation 은 ES export 대신 `this || self` 에 클래스를 붙입니다.
  *
- * ⚠️ Next(webpack 5)에서 이 모듈은 exports 미사용으로 컴파일되어 top-level `this` 가
- *    globalThis 가 됩니다. 즉 **모듈 네임스페이스는 비어 있고 클래스는 window 에**
- *    붙습니다. `const { SelfieSegmentation } = await import(...)` 로 바꾸면 undefined 가
- *    나오니, 아래 폴백 체인을 지워도 되는 코드로 오해하지 마세요.
- *    (타입 선언은 named export 를 주장하므로 컴파일은 통과합니다.)
+ * ⚠️ webpack 5 에서 모듈 네임스페이스는 비고 클래스는 window 에 붙으므로, 아래 폴백
+ *    체인을 `const { SelfieSegmentation } = await import(...)` 로 바꾸면 undefined 가
+ *    나옵니다. 타입 선언이 named export 를 주장해 컴파일은 통과하니 주의하세요.
  */
 function resolveSegmenterCtor(mod: unknown): SegmenterCtor {
   const ns = mod as SegmentationModuleLike;

@@ -6,9 +6,7 @@ import { cbCrDistanceToKey, keyColorToCbCr } from "@/lib/chromaKey";
 import { resolveMattingMode } from "@/lib/matting";
 import type { MoodAnalysis, MoodKey, MoodLevel } from "@/lib/types";
 
-// -----------------------------------------------------------------------------
-// 1. 프레임 캡처
-// -----------------------------------------------------------------------------
+// --- 1. 프레임 캡처 ---
 
 /** <video> 현재 프레임을 분석용 JPEG dataURL 로 캡처. 첫 프레임 전이면 null. */
 export function captureAnalysisFrame(video: HTMLVideoElement): string | null {
@@ -28,15 +26,9 @@ export function captureAnalysisFrame(video: HTMLVideoElement): string | null {
   return canvas.toDataURL("image/jpeg", MOOD_ANALYSIS_CONFIG.jpegQuality);
 }
 
-// -----------------------------------------------------------------------------
-// 2. 로컬 폴백 — 캔버스 픽셀만으로 판정 (네트워크·난수 없음)
-// -----------------------------------------------------------------------------
+// --- 2. 로컬 폴백 — 캔버스 픽셀만으로 판정 (네트워크·난수 없음) ---
 
-/**
- * 0~255 RGB → 판정에 쓸 세 값.
- * 밝기: BT.601 체감 밝기(HSL L은 고채도에서 0.5로 눌림).
- * 채도: delta/max 순색도(HSL S는 밝은 저채도에서 부풀려짐).
- */
+/** 0~255 RGB → 판정용 세 값. HSL 대신 BT.601 밝기와 순색도(delta/max)를 씁니다. */
 function rgbToTone(r: number, g: number, b: number): { h: number; chroma: number; lum: number } {
   const rn = r / 255;
   const gn = g / 255;
@@ -165,13 +157,8 @@ function averageColor(
 }
 
 /**
- * 캔버스 픽셀만으로 무드를 판정합니다 (AI 실패 시 폴백).
- *
- * 프레임 전체가 아니라 `MOOD_ANALYSIS_CONFIG.sampleRegion` 영역 — 화면 가운데
- * 아래쪽, 즉 상의가 오는 자리 — 만 봅니다. 얼굴·머리카락·뒷배경이 섞이면 평균이
- * 흐려지기 때문입니다. 같은 사진은 항상 같은 결과가 나옵니다(난수 없음).
- *
- * 크로마키 모드에서는 그 위에 **그린 스크린 가드**가 한 겹 더 붙습니다(greenGuard).
+ * 캔버스 픽셀만으로 무드를 판정합니다 (AI 실패 시 폴백). 얼굴·머리카락·뒷배경이 섞이면
+ * 평균이 흐려지므로 `sampleRegion`(상의가 오는 자리)만 봅니다.
  */
 export async function analyzeMoodLocally(dataUrl: string): Promise<MoodAnalysis> {
   const img = await loadImage(dataUrl);
@@ -200,10 +187,9 @@ export async function analyzeMoodLocally(dataUrl: string): Promise<MoodAnalysis>
   // 4픽셀 간격으로 샘플링 — 정확도는 그대로면서 큰 프레임에서도 즉시 끝납니다.
   const stride = 4 * 4;
 
-  // 1차: 그린 스크린 픽셀을 뺀 평균.
   let avg = averageColor(pixels, stride, greenGuard());
-  // 남은 표본이 너무 적으면(손님이 프레임 밖이거나 초록 옷을 입은 경우) 가드를 풀고
-  // 예전처럼 전체 평균을 씁니다 — 판정이 이상해질지언정 **실패하지는 않습니다.**
+  // 표본이 너무 적으면(손님이 프레임 밖이거나 초록 옷) 가드를 풀고 전체 평균으로
+  // 되돌아갑니다 — 판정이 흐려질지언정 실패하지는 않도록.
   if (avg.count < Math.ceil(pixels.length / stride / 5)) {
     avg = averageColor(pixels, stride, null);
   }
@@ -225,10 +211,7 @@ export async function analyzeMoodLocally(dataUrl: string): Promise<MoodAnalysis>
   };
 }
 
-/**
- * 색을 읽을 수단이 아예 없을 때의 최후 결과 — 가운데 값인 "여유"로 진행합니다.
- * (카메라를 못 켠 경우, 캔버스가 오염된 경우, 픽셀 샘플이 0개인 경우)
- */
+/** 색을 읽을 수단이 아예 없을 때의 최후 결과 — 가운데 값인 "여유"로 진행합니다. */
 export function neutralMoodAnalysis(): MoodAnalysis {
   return {
     mood: "calm",
@@ -240,9 +223,7 @@ export function neutralMoodAnalysis(): MoodAnalysis {
   };
 }
 
-// -----------------------------------------------------------------------------
-// 3. 서버 라우트 호출 (+ 자동 폴백)
-// -----------------------------------------------------------------------------
+// --- 3. 서버 라우트 호출 (+ 자동 폴백) ---
 
 /** /api/analyze-mood 가 돌려주는 형태 — 내부 키(light/calm/bold)로 변환된 상태입니다. */
 interface MoodApiResponse {
@@ -257,8 +238,7 @@ const VALID_MOODS: MoodKey[] = ["light", "calm", "bold"];
 const VALID_LEVELS: MoodLevel[] = ["HIGH", "MEDIUM", "LOW"];
 
 /**
- * 무드 판정. 서버 라우트(OpenAI Vision)를 먼저 시도하고, 키 미설정·요청 한도·
- * 오프라인·타임아웃 등 **어떤 실패에도 로컬 색 분석 결과로 대체**합니다.
+ * 무드 판정. 서버 라우트를 먼저 시도하고 **어떤 실패에도 로컬 색 분석으로 대체**하므로
  * 호출 측에서 try/catch 할 필요가 없습니다.
  */
 export async function requestMoodAnalysis(dataUrl: string): Promise<MoodAnalysis> {

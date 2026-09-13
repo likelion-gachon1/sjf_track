@@ -1,9 +1,5 @@
-// =============================================================================
-// 백엔드 연동 — 촬영 결과 업로드 & 결과 조회
-// -----------------------------------------------------------------------------
-// 백엔드 주소는 여기 한 곳(NEXT_PUBLIC_API_BASE)에서만 정합니다.
-// 로컬에서는 localhost:8080, 배포(가비아) 시에는 .env 만 바꾸면 됩니다.
-// =============================================================================
+// 백엔드 연동 — 촬영 결과 업로드 & 결과 조회.
+// 백엔드 주소는 NEXT_PUBLIC_API_BASE 한 곳에서만 정합니다.
 
 import { UPLOAD_CONFIG } from "@/config/portal.config";
 import type { Answers, ColorwayKey, WorldId } from "@/lib/types";
@@ -46,9 +42,8 @@ export interface ApiErrorBody {
 }
 
 /**
- * 서버가 응답은 했지만 실패한 경우(4xx/5xx).
- * 화면에서 404(없음)·410(만료)·500(서버 오류)을 갈라 쓸 수 있도록 상태 코드를 들고 다닙니다.
- * 네트워크 자체가 끊긴 경우는 fetch 가 TypeError 를 던지므로 `instanceof ApiError` 로 구분됩니다.
+ * 서버가 응답은 했지만 실패한 경우(4xx/5xx). 화면에서 404·410·500 을 갈라 쓰도록
+ * 상태 코드를 들고 다닙니다. 네트워크 단절은 fetch 가 TypeError 를 던지므로 구분됩니다.
  */
 export class ApiError extends Error {
   readonly status: number;
@@ -62,11 +57,7 @@ export class ApiError extends Error {
   }
 }
 
-/**
- * 요청이 제한 시간 안에 끝나지 않은 경우.
- * 부스 WiFi 가 끊기면 fetch 가 영영 안 끝나 "저장 중"에서 멈춘 것처럼 보이므로,
- * 서버 오류(ApiError)와 구분해 "연결 확인" 안내를 띄울 수 있게 따로 둡니다.
- */
+/** 제한 시간 초과. ApiError 와 구분해 "연결 확인" 안내를 띄우기 위해 따로 둡니다. */
 export class TimeoutError extends Error {
   constructor(ms: number) {
     super(`요청이 ${ms}ms 안에 끝나지 않았습니다`);
@@ -127,11 +118,7 @@ function canvasToBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob 
   return new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", quality));
 }
 
-/**
- * 백엔드 10MB 제한에 걸리지 않도록 필요할 때만 다시 인코딩합니다.
- * 실사 배경이 들어가면서 JPEG 이 커졌기 때문에, 그냥 올리면 413 으로 조용히 실패할
- * 수 있습니다. 대부분은 첫 검사에서 통과해 재인코딩 비용이 들지 않습니다.
- */
+/** 백엔드 10MB 제한(413)에 걸리지 않도록 필요할 때만 다시 인코딩합니다. */
 export async function encodeWithinLimit(imageDataUrl: string): Promise<Blob> {
   let blob = dataUrlToBlob(imageDataUrl);
   if (blob.size <= UPLOAD_CONFIG.maxBytes) return blob;

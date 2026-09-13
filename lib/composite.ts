@@ -28,11 +28,8 @@ function sourceSize(source: DrawableSource): Size {
 }
 
 /**
- * object-fit: cover 와 동일한 배치 계산. 대상 영역을 꽉 채우도록 확대하고
- * 넘치는 부분은 캔버스 경계에서 잘립니다(가운데 정렬).
- *
- * 결과는 종횡비에만 의존하므로, 종횡비가 같은 소스(마스크와 원본 프레임)는
- * 각각 계산해도 항상 같은 사각형이 나와 정렬이 어긋나지 않습니다.
+ * object-fit: cover 와 동일한 배치 계산. 종횡비에만 의존하므로 마스크와 원본 프레임을
+ * 각각 계산해도 같은 사각형이 나와 정렬이 어긋나지 않습니다.
  */
 export function coverRect(srcW: number, srcH: number, dstW: number, dstH: number): Rect {
   if (srcW <= 0 || srcH <= 0) return { x: 0, y: 0, width: dstW, height: dstH };
@@ -74,24 +71,12 @@ export function drawWorldBackground(
 }
 
 /**
- * 인물만 남은 레이어를 오프스크린 캔버스에 만듭니다. — **세그멘테이션 방식**
- *
- * copy / source-in 은 **반드시 오프스크린에서** 수행해야 합니다. 메인 캔버스에서
- * copy 를 쓰면 방금 그린 배경이 지워집니다.
- *
- * ── 인물 레이어는 두 방식 중 하나로 만들어집니다 ────────────────────────────
- * 이 함수가 세그멘테이션 쪽 진입점이고, 크로마키 쪽은 lib/chromaKey.ts 의
- * WebGL 렌더러가 같은 자리를 맡습니다. 그 뒤의 배경 합성(drawCompositeFrame)·
- * 좌우 반전·촬영(captureFrame) 은 인물 레이어가 **어떻게** 만들어졌는지 알지
- * 못하므로, 두 방식은 아래 파이프라인을 그대로 공유합니다.
- */
-/**
- * 세그멘테이션 마스크 가장자리 정리용 CSS filter 문자열.
- * SEGMENTATION_CONFIG 값으로 blur(부드럽게) + brightness(안쪽 깎기) + contrast(배경 비침 제거)를 조합합니다.
+ * 세그멘테이션 마스크 가장자리 정리용 CSS filter — blur(부드럽게) + brightness(안쪽
+ * 깎기) + contrast(배경 비침 제거).
  */
 function buildMaskFilter(): string {
-  // number 로 넓혀 받습니다: config 값이 `as const` 로 리터럴 타입이라, 아래의
-  // "값이 1/100 이면 끔(off)" 가드가 리터럴 비교로 막히는 것을 피합니다(런타임 동작 동일).
+  // number 로 넓혀 받습니다 — config 가 `as const` 라 아래 "1/100 이면 끔" 가드가
+  // 리터럴 비교로 막히는 것을 피합니다 (런타임 동작은 동일).
   const featherPx: number = SEGMENTATION_CONFIG.featherPx;
   const maskErode: number = SEGMENTATION_CONFIG.maskErode;
   const maskContrast: number = SEGMENTATION_CONFIG.maskContrast;
@@ -102,18 +87,20 @@ function buildMaskFilter(): string {
   return parts.length > 0 ? parts.join(" ") : "none";
 }
 
+/**
+ * 인물만 남은 레이어를 만듭니다 — 세그멘테이션 방식의 진입점(크로마키는 chromaKey.ts).
+ * 이후 배경 합성·반전·촬영은 두 방식이 그대로 공유합니다.
+ *
+ * ⚠️ copy/source-in 은 **반드시 오프스크린에서** — 메인 캔버스에서 copy 를 쓰면
+ *    방금 그린 배경이 지워집니다.
+ */
 export function drawPersonLayer(
   personCtx: CanvasRenderingContext2D,
   results: Results,
   width: number,
   height: number
 ): void {
-  // 1) 마스크를 알파 채널로 깔기.
-  //    blur           = 경계를 부드럽게(계단현상 완화)
-  //    brightness(<1) = 경계를 안쪽으로 살짝 깎아 뒷배경 테두리 제거 (erode)
-  //    contrast(높게) = 반투명 회색 띠를 사람/배경 둘 중 하나로 확실히 밀어
-  //                     "가장자리로 배경이 비치는" 현상 제거
-  //    → 값은 config/portal.config.ts 의 SEGMENTATION_CONFIG 에서 조절합니다.
+  // 1) 마스크를 알파 채널로 깔기
   personCtx.globalCompositeOperation = "copy";
   personCtx.filter = buildMaskFilter();
   drawCover(personCtx, results.segmentationMask, width, height);
@@ -129,10 +116,7 @@ export function drawPersonLayer(
 
 /**
  * 한 프레임 합성: 배경(반전 없음) → 인물 레이어(좌우 반전 1회).
- *
- * 반전을 인물 레이어에만 한 번 적용하므로 마스크/원본이 어긋날 일이 없고
- * 배경(도시 풍경·간판)은 뒤집히지 않습니다. CSS 등 다른 곳에 반전을 중복으로
- * 걸지 마세요.
+ * CSS 등 다른 곳에 반전을 중복으로 걸지 마세요.
  */
 export function drawCompositeFrame(params: {
   ctx: CanvasRenderingContext2D;

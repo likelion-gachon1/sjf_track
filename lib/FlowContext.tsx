@@ -19,11 +19,7 @@ interface FlowState {
   productId: string | null;
   colorwayKey: ColorwayKey | null;
   answers: Answers;
-  /**
-   * 04 MOOD 의 AI 분석 결과 전문. `answers.mood` 는 여기서 뽑은 키를 그대로 복사한
-   * 값이라 월드 결정·업로드 경로는 예전과 동일하게 동작하고, 컬러 칩·설명처럼
-   * 화면에만 쓰이는 부가 정보는 이쪽에서 꺼내 씁니다.
-   */
+  /** 04 MOOD 분석 결과 전문. `answers.mood` 는 여기서 키만 복사한 값입니다. */
   moodAnalysis: MoodAnalysis | null;
   selectedWorldId: WorldId | null;
   capturedAt: number | null;
@@ -188,11 +184,11 @@ export function usePortalFlow() {
 }
 
 /**
- * 세션 ID 발급. crypto.randomUUID 는 secure context(https/localhost) 전용이라
- * 부스 PC가 http 로 접속하는 경우를 위해 폴백을 둡니다.
+ * 세션 ID 발급. randomUUID 는 secure context 전용이라 http 부스 PC 용 폴백을 둡니다.
+ *
  * ⚠️ 리듀서가 아니라 START 클릭 핸들러에서 호출하세요 (리듀서를 순수하게 유지).
- * ⚠️ 백엔드가 sessionId 를 UUID 로 검증하므로 폴백도 반드시 UUID 형식이어야 합니다
- *    (형식이 다르면 업로드가 400 으로 조용히 실패합니다).
+ * ⚠️ 백엔드가 UUID 로 검증하므로 폴백도 **반드시 UUID 형식**이어야 합니다 — 형식이
+ *    다르면 업로드가 400 으로 조용히 실패합니다.
  */
 export function createSessionId(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -201,11 +197,7 @@ export function createSessionId(): string {
   return createUuidV4();
 }
 
-/**
- * RFC 4122 v4 UUID 를 직접 조립합니다.
- * `crypto.getRandomValues` 는 randomUUID 와 달리 http 에서도 쓸 수 있어 우선 사용하고,
- * 그마저 없으면 Math.random 으로 내려갑니다(형식은 동일하게 유지).
- */
+/** RFC 4122 v4 UUID 직접 조립. getRandomValues 는 http 에서도 쓸 수 있어 우선 사용합니다. */
 function createUuidV4(): string {
   const bytes = new Uint8Array(16);
   if (typeof crypto !== "undefined" && typeof crypto.getRandomValues === "function") {

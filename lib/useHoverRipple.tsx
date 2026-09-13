@@ -4,15 +4,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { RIPPLE_CONFIG } from "@/config/portal.config";
 import { coveringRadius, motionAllowed } from "@/lib/useRipple";
 
-// =============================================================================
-// 선택지 호버 물결
-// -----------------------------------------------------------------------------
-// 화면 전환용 ripple(RippleTransition.tsx)과는 별개입니다. 이쪽은
-//   - 버튼 **안에서만**, **정중앙에서** 퍼지고 (부모에 relative + overflow-hidden 필요)
-//   - 클릭을 가로채지 않으며 (pointer-events: none)
-//   - 마우스를 올려둔 동안 hoverRepeatMs 간격으로 반복돼 물결처럼 보입니다.
-// transform/opacity 만 애니메이션하므로 레이아웃 리플로우가 없습니다.
-// =============================================================================
+// 선택지 호버 물결 — 화면 전환용 ripple(RippleTransition.tsx)과는 별개입니다.
+// 버튼 정중앙에서 퍼지고(부모에 relative + overflow-hidden 필요), 클릭을 가로채지
+// 않으며, hoverRepeatMs 간격으로 반복됩니다.
 
 interface HoverRipple {
   id: number;
