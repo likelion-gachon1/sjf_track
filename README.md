@@ -1,7 +1,7 @@
 # MCM PORTAL — 프론트 (`sjf_track`)
 
 > 멋사 대학 14기 해커톤 · 가천미인 · Challenge 02 :: 인터랙티브 리테일
-> Live ▸ https://mcm-portal.duckdns.org
+> Live ▸ https://mcmportal.duckdns.org
 > Repos ▸ 프론트 sjf_track · 백엔드 sjf_BE · 배경생성 sjf_ai
 
 매장 부스의 대형 가로 화면에서 도는 리테일 체험의 프론트엔드입니다. 고객을 크로마키로 실시간

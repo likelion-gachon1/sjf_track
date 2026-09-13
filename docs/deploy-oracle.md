@@ -204,6 +204,27 @@ echo "alias mcm='bash ~/mcm/sjf_track/deploy/mcm.sh'" >> ~/.bashrc && source ~/.
 
 > **`NEXT_PUBLIC_*` 는 빌드 타임에 코드로 박힙니다.** 도메인이나 API 주소를 바꾸면 재시작이 아니라 **재빌드**(`mcm deploy`)가 필요합니다.
 
+### 코드 변경 후 재배포 시 확인할 것
+
+보통은 `mcm deploy` 한 줄이면 끝나지만, 아래 상황에서는 추가 조치가 필요합니다.
+
+- **`git pull` 이 "diverged" 로 실패하면** — GitHub 쪽에서 `force push`(히스토리 재작성)가 있었다는 뜻입니다. 서버 클론에 로컬 커밋·수정이 없는지 `git status` 로 먼저 확인한 뒤, 없으면 아래로 원격과 강제로 맞춥니다.
+  ```bash
+  git fetch origin && git reset --hard origin/main
+  ```
+  로컬에만 있는 수정이 있다면 origin 쪽에 이미 반영된 내용인지 `git diff <파일>` 로 확인 후 버리거나(`git checkout -- <파일>`), 정말 서버 전용 값이면 커밋해서 올리세요.
+
+- **nginx 설정(`deploy/nginx/mcm.conf.template`)을 고쳤다면** — 이 템플릿은 `oracle-https.sh` 최초 실행 시에만 서버의 `/etc/nginx/sites-available/mcm` 으로 복사됩니다. `mcm deploy` 는 이 파일을 건드리지 않으므로, nginx 라우팅을 바꾼 뒤에는 **직접 반영**해야 합니다.
+  ```bash
+  sudo sed "s|__FQDN__|<도메인>.duckdns.org|g" ~/mcm/sjf_track/deploy/nginx/mcm.conf.template | sudo tee /etc/nginx/sites-available/mcm >/dev/null
+  sudo nginx -t && sudo systemctl reload nginx
+  ```
+  ⚠️ 서버의 실제 파일에는 `certbot --nginx` 가 자동으로 붙인 443/SSL 블록이 들어 있습니다. 위 명령으로 **통째로 덮어쓰면 그 블록이 사라집니다** — 먼저 `sudo cat /etc/nginx/sites-available/mcm` 으로 현재 구조를 확인하고, 필요한 location 블록만 수동으로 추가하는 편이 안전합니다.
+
+- **새 의존성이나 런타임 에셋을 추가했다면**(예: ONNX 모델, MediaPipe 파일) — `npm ci` 와 `prebuild` 가 Docker 빌드 안에서 자동 실행되므로 보통 별도 조치는 없습니다. 단, 빌드에 필요한 파일이 `.gitignore` 에 걸려 있지 않은지, 커밋에 실제로 포함됐는지(`git ls-files <경로>`)는 배포 전에 확인하세요.
+
+- **빌드가 메모리 부족으로 멈추면** — 11장의 "저사양 대응" 참고.
+
 ---
 
 ## 8. 백업

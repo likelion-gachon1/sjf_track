@@ -3,7 +3,7 @@ services:
     build:
       context: .
       args:
-        NEXT_PUBLIC_API_BASE: https://mcm-portal.duckdns.org
+        NEXT_PUBLIC_API_BASE: https://mcmportal.duckdns.org
     ports:
       - "3000:3000"
     env_file:
