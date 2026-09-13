@@ -1,0 +1,86 @@
+# ============================================================
+# MCM PORTAL 운영 구성 (Oracle Cloud Always Free VM)
+#
+#   [인터넷] --80/443--> nginx(호스트) --+--> frontend :3000  (Next.js)
+#                                        +--> backend  :8080  (Spring Boot)
+#                                                        |
+#                                                        +--> db :5432 (Postgres)
+#
+# frontend/backend 포트는 127.0.0.1 에만 바인딩합니다.
+# 외부로 나가는 문은 nginx(80/443) 하나뿐입니다.
+#
+# 실행 위치: ~/mcm/sjf_track/deploy
+#   docker compose -f docker-compose.prod.yml --env-file ../../.env up -d --build
+#   (deploy/mcm.sh up 을 쓰면 위 명령을 대신 실행합니다)
+# ============================================================
+
+name: mcm
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: mcm-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-mcm}
+      POSTGRES_USER: ${POSTGRES_USER:-mcm}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD 를 .env 에 설정하세요}
+      TZ: Asia/Seoul
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      # backend 가 DB 준비 전에 떠서 죽는 것을 막습니다.
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mcm} -d ${POSTGRES_DB:-mcm}"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  backend:
+    build:
+      context: ../../sjf_BE
+    container_name: mcm-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_URL: "jdbc:postgresql://db:5432/${POSTGRES_DB:-mcm}"
+      DB_USERNAME: "${POSTGRES_USER:-mcm}"
+      DB_PASSWORD: "${POSTGRES_PASSWORD}"
+      H2_CONSOLE_ENABLED: "false"
+      STORAGE_PATH: "/app/uploads"
+      SESSION_TTL_HOURS: "${SESSION_TTL_HOURS:-24}"
+      # 아래 3개는 모두 https://<도메인> 형태여야 합니다. (프론트와 같은 출처)
+      FRONTEND_BASE_URL: "${PUBLIC_BASE_URL}"
+      PUBLIC_API_BASE_URL: "${PUBLIC_BASE_URL}"
+      ALLOWED_ORIGINS: "${PUBLIC_BASE_URL}"
+      TZ: Asia/Seoul
+    volumes:
+      # 촬영 이미지 원본. 이 볼륨이 날아가면 지난 세션 사진이 사라집니다. 백업 대상.
+      - backend-uploads:/app/uploads
+    ports:
+      - "127.0.0.1:8080:8080"
+
+  frontend:
+    build:
+      context: ..
+      args:
+        # NEXT_PUBLIC_* 는 빌드 타임에 코드로 박힙니다.
+        # 이 값을 바꾸면 반드시 --build 로 다시 빌드해야 합니다.
+        NEXT_PUBLIC_API_BASE: "${PUBLIC_BASE_URL}"
+        NEXT_PUBLIC_PORTAL_HOST: "${PUBLIC_BASE_URL}"
+    container_name: mcm-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      # 서버 전용 키. /api/analyze-mood, /api/passport 가 런타임에 읽습니다.
+      # NEXT_PUBLIC_ 접두사를 붙이면 브라우저로 새어나갑니다 — 붙이지 마세요.
+      OPENAI_API_KEY: "${OPENAI_API_KEY:?OPENAI_API_KEY 를 .env 에 설정하세요}"
+      TZ: Asia/Seoul
+    ports:
+      - "127.0.0.1:3000:3000"
+
+volumes:
+  db-data:
+  backend-uploads:
