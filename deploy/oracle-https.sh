@@ -51,7 +51,13 @@ curl -fsS "https://www.duckdns.org/update?domains=${DUCK_DOMAIN}&token=${DUCK_TO
   -o "$HOME/duckdns/duck.log" 2>&1
 EOF
 chmod 700 "$HOME/duckdns/duck.sh"
-( crontab -l 2>/dev/null | grep -v 'duckdns/duck.sh' ; echo "*/5 * * * * $HOME/duckdns/duck.sh >/dev/null 2>&1" ) | crontab -
+# 괄호+파이프로 한 줄에 합치면 환경에 따라 set -e/pipefail 과 얽혀 조용히
+# 중단되는 경우가 있어, 임시 파일을 거치는 방식으로 안전하게 등록합니다.
+CRON_TMP="$(mktemp)"
+crontab -l 2>/dev/null | grep -v 'duckdns/duck.sh' > "$CRON_TMP" || true
+echo "*/5 * * * * $HOME/duckdns/duck.sh >/dev/null 2>&1" >> "$CRON_TMP"
+crontab "$CRON_TMP"
+rm -f "$CRON_TMP"
 echo "   5분 주기 갱신 등록 완료"
 
 echo "==> 2. PUBLIC_BASE_URL 확정"
