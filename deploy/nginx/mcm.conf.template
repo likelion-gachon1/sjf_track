@@ -19,6 +19,19 @@ server {
     proxy_read_timeout 300s;
     proxy_send_timeout 300s;
 
+    # ---- 프론트 전용 API (Next.js route.ts) ----
+    # /api/analyze-mood, /api/passport 는 sjf_BE 가 아니라 프론트 컨테이너 안의
+    # 라우트입니다(OPENAI_API_KEY 를 여기서만 읽음). /api/ 보다 먼저 매칭되도록
+    # 정규식 location 으로 위에 둡니다 — 순서를 바꾸면 다시 404 로 돌아갑니다.
+    location ~ ^/api/(analyze-mood|passport) {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
     # ---- 백엔드 (Spring Boot) ----
     # BE 컨트롤러가 /api/** 를 쓰므로 경로를 그대로 넘깁니다.
     # (proxy_pass 끝에 슬래시를 붙이면 /api 가 잘립니다 — 붙이지 마세요)
