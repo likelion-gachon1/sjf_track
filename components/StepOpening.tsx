@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   OPENING_STAGES,
   OPENING_TOTAL_MS,
@@ -14,83 +14,74 @@ import { checkHealth } from "@/lib/api";
 import { usePortalFlow } from "@/lib/FlowContext";
 import { resolveMattingMode } from "@/lib/matting";
 import { usePortalRuntime } from "@/lib/PortalRuntime";
+import { neutralMoodAnalysis, requestMoodAnalysis } from "@/lib/moodAnalysis";
+import type { MoodAnalysis } from "@/lib/types";
 
 // 05 PORTAL OPENING
-// 연출 화면이자 프리로드 구간입니다. 여기서 카메라 권한 팝업을 띄워두기 때문에
-// 07 진입 시 몰입이 끊기지 않습니다.
-//
-// 화면 길이·문구는 전부 OPENING_STAGES(config)가 정하고 여기서는 재생만 합니다 —
-// 길이를 바꾸려면 config 만 고치세요.
+// 첫 안내에서 실제 무드 분석을 실행하고, 완료 후 World를 준비합니다.
+// OPENING_STAGES의 시간은 각 문구의 최소 표시 시간입니다.
 
 export default function StepOpening() {
   const { state, dispatch } = usePortalFlow();
   const runtime = usePortalRuntime();
-  const { mood, journey } = state.answers;
-  const colorwayKey = state.colorwayKey;
   const [stageIndex, setStageIndex] = useState(0);
-
-  // 각 단계의 시작 시각에 맞춰 문구를 넘깁니다(누적 합 기준으로 한 번에 예약).
-  useEffect(() => {
-    const timers: number[] = [];
-    let elapsed = 0;
-    OPENING_STAGES.forEach((stage, i) => {
-      if (i === 0) return; // 0번은 처음부터 떠 있으므로 예약이 필요 없습니다.
-      elapsed += OPENING_STAGES[i - 1].ms;
-      timers.push(window.setTimeout(() => setStageIndex(i), elapsed));
-    });
-    return () => timers.forEach((t) => window.clearTimeout(t));
-  }, []);
+  // StrictMode 효과 재실행에서도 동일한 분석 요청을 재사용합니다.
+  const requestRef = useRef<Promise<MoodAnalysis> | null>(null);
+  const inputRef = useRef({
+    frame: state.moodFrame, sessionId: state.sessionId,
+    journey: state.answers.journey, colorwayKey: state.colorwayKey,
+  });
 
   useEffect(() => {
-    if (!mood || !journey || !colorwayKey) {
-      // 정상 플로우에서는 도달할 수 없습니다 (개발 중 HMR/새로고침 대비).
-      console.warn("[portal] 선택값이 없어 처음 화면으로 되돌립니다.");
+    const { frame, sessionId, journey, colorwayKey } = inputRef.current;
+    if (!journey || !colorwayKey) {
       dispatch({ type: "RESET" });
       return;
     }
-
     let cancelled = false;
-    const worldId = resolveWorld(colorwayKey, mood, journey);
-    // 07에서 쓸 배경을 여기서 미리 받아둡니다 — 조합 배경까지 반영해야 같은 파일을
-    // 프리로드하게 되고, 07 진입 시 다시 받느라 첫 프레임이 비는 일이 없습니다.
-    const world = applyComboBackground(WORLDS[worldId], colorwayKey, { mood, journey });
-
-    // 개별 실패는 진행을 막지 않습니다 — 카메라 실패는 07의 에러 UI가,
-    // 이미지 실패는 검정 폴백이 처리합니다.
-    // 헬스체크는 체험을 막지 않습니다 — 서버가 죽었어도 촬영까지는 정상 진행하고,
-    // 스태프가 업로드 실패 전에 미리 알아차리도록 경고만 남깁니다.
-    void checkHealth().then((ok) => {
-      if (cancelled || ok) return;
-      console.warn("[portal] 백엔드에 연결할 수 없습니다 — 촬영 후 업로드가 실패할 수 있습니다");
-      track({ name: "backend_unreachable" });
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const wait = (ms: number) => new Promise<void>((resolve) => {
+      timers.push(setTimeout(resolve, ms));
     });
-
-    // 크로마키는 MediaPipe 가 필요 없으므로 이 구간을 건너뜁니다(로딩이 그만큼 빨라집니다).
-    // 07 에서 WebGL 실패로 세그멘테이션으로 내려가면 그때 처음 로드하게 되어 잠깐
-    // 로딩 문구가 보일 수 있는데, 그건 폴백 경로라 감수합니다.
-    const preloads = Promise.allSettled([
-      ...(resolveMattingMode() === "segmentation" ? [runtime.getSegmenter()] : []),
-      runtime.preloadWorldImage(world),
-      runtime.acquireCamera(),
-    ]);
-    // 단계 문구를 다 보여주기 전에 화면이 넘어가면 마지막 단계가 잘려 보입니다.
-    const minVisible = new Promise((resolve) => window.setTimeout(resolve, OPENING_TOTAL_MS));
-
-    void Promise.all([preloads, minVisible]).then(() => {
+    if (!requestRef.current) {
+      requestRef.current = frame ? requestMoodAnalysis(frame) : Promise.resolve(neutralMoodAnalysis());
+    }
+    void (async () => {
+      // 실제 분석이 끝날 때까지 첫 문구를 유지합니다.
+      const [analysis] = await Promise.all([requestRef.current!, wait(OPENING_STAGES[0].ms)]);
       if (cancelled) return;
-
+      track({ name: "mood_analyzed", value: analysis.mood, source: analysis.source });
+      dispatch({ type: "ANALYZE_MOOD", result: analysis, sessionId });
+      const mood = analysis.mood;
+      const worldId = resolveWorld(colorwayKey, mood, journey);
+      const world = applyComboBackground(WORLDS[worldId], colorwayKey, { mood, journey });
+      let elapsed = 0;
+      OPENING_STAGES.forEach((stage, index) => {
+        if (index === 0) return;
+        if (index === 1) setStageIndex(index);
+        else timers.push(setTimeout(() => setStageIndex(index), elapsed));
+        elapsed += stage.ms;
+      });
+      void checkHealth().then((ok) => {
+        if (!cancelled && !ok) track({ name: "backend_unreachable" });
+      });
+      await Promise.all([
+        Promise.allSettled([
+          ...(resolveMattingMode() === "segmentation" ? [runtime.getSegmenter()] : []),
+          runtime.preloadWorldImage(world), runtime.acquireCamera(),
+        ]),
+        wait(OPENING_TOTAL_MS - OPENING_STAGES[0].ms),
+      ]);
+      if (cancelled) return;
       track({ name: "world_resolved", worldId, mood, journey });
-      // reason 문장은 데이터로만 준비합니다. 노출 위치가 정해지기 전까지 화면에
-      // 렌더링하지 않고, 매핑 검증용으로 콘솔에만 남깁니다.
       console.info("[portal] world reason:", buildWorldReason(mood, journey, world));
-
       dispatch({ type: "RESOLVE_WORLD", worldId });
-    });
-
+    })();
     return () => {
       cancelled = true;
+      timers.forEach(clearTimeout);
     };
-  }, [colorwayKey, dispatch, journey, mood, runtime]);
+  }, [dispatch, runtime]);
 
   return (
     <div

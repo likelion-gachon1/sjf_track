@@ -19,8 +19,10 @@ interface FlowState {
   productId: string | null;
   colorwayKey: ColorwayKey | null;
   answers: Answers;
-  /** 04 MOOD 분석 결과 전문. `answers.mood` 는 여기서 키만 복사한 값입니다. */
+  /** 05 OPENING 분석 결과 전문. `answers.mood` 는 여기서 키만 복사한 값입니다. */
   moodAnalysis: MoodAnalysis | null;
+  /** 옷 감지 직후 캡처. 분석은 opening에서 실행하고 완료 즉시 비웁니다. */
+  moodFrame: string | null;
   selectedWorldId: WorldId | null;
   capturedAt: number | null;
   /** 촬영 결과 JPEG dataURL (서버 업로드 없이 메모리에만 보관). */
@@ -42,6 +44,7 @@ const initialState: FlowState = {
   colorwayKey: null,
   answers: { mood: null, journey: null },
   moodAnalysis: null,
+  moodFrame: null,
   selectedWorldId: null,
   capturedAt: null,
   capturedImage: null,
@@ -56,7 +59,8 @@ type FlowAction =
   | { type: "START"; sessionId: string }
   | { type: "SELECT_PRODUCT"; productId: string; colorwayKey: ColorwayKey }
   | { type: "ANSWER_JOURNEY"; value: JourneyKey }
-  | { type: "ANALYZE_MOOD"; result: MoodAnalysis }
+  | { type: "START_MOOD_ANALYSIS"; frame: string | null }
+  | { type: "ANALYZE_MOOD"; result: MoodAnalysis; sessionId: string }
   | { type: "RESOLVE_WORLD"; worldId: WorldId }
   | { type: "ENTER_PORTAL" }
   | { type: "CAPTURE"; dataUrl: string }
@@ -69,7 +73,7 @@ type FlowAction =
 // 화면 전환 책임은 리듀서가 갖습니다. 각 전환은 "예상한 step 에서만" 일어나므로
 // (개발 모드 StrictMode 이중 dispatch, ripple 전환 중 중복 클릭 등으로) 같은 액션이
 // 두 번 들어와도 step 이 건너뛰어지지 않습니다.
-function flowReducer(state: FlowState, action: FlowAction): FlowState {
+export function flowReducer(state: FlowState, action: FlowAction): FlowState {
   switch (action.type) {
     case "SET_CONSENT":
       return { ...state, consent: action.value };
@@ -96,20 +100,22 @@ function flowReducer(state: FlowState, action: FlowAction): FlowState {
         step: "mood",
       };
 
-    case "ANALYZE_MOOD":
-      // 사용자가 고르는 게 아니라 카메라 분석 결과가 들어옵니다. 결과 화면의
-      // "다음" 버튼에서 한 번만 dispatch 되고, 여기서 05 프리로드로 넘어갑니다.
+    case "START_MOOD_ANALYSIS":
       if (state.step !== "mood") return state;
+      return { ...state, moodFrame: action.frame, moodAnalysis: null, step: "opening" };
+
+    case "ANALYZE_MOOD":
+      if (state.step !== "opening" || state.sessionId !== action.sessionId || state.moodAnalysis) return state;
       return {
         ...state,
         answers: { ...state.answers, mood: action.result.mood },
         moodAnalysis: action.result,
-        step: "opening",
+        moodFrame: null,
       };
 
     case "RESOLVE_WORLD":
       // 05 프리로드가 끝나면 dispatch 됩니다.
-      if (state.step !== "opening") return state;
+      if (state.step !== "opening" || !state.moodAnalysis) return state;
       return { ...state, selectedWorldId: action.worldId, step: "reveal" };
 
     case "ENTER_PORTAL":
