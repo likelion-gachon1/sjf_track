@@ -50,7 +50,15 @@ sudo apt-get update -y >/dev/null
 sudo DEBIAN_FRONTEND=noninteractive apt-get install -y iptables-persistent netfilter-persistent >/dev/null
 for PORT in 80 443; do
   if ! sudo iptables -C INPUT -p tcp --dport "$PORT" -j ACCEPT 2>/dev/null; then
-    sudo iptables -I INPUT 6 -m state --state NEW -p tcp --dport "$PORT" -j ACCEPT
+    # REJECT/DROP 규칙보다 반드시 앞에 끼워 넣어야 합니다. 위치를 6번으로
+    # 고정하면 이미지마다 기본 규칙 개수가 달라 REJECT 뒤에 들어가버릴 수
+    # 있어(=차단 유지), 매번 REJECT/DROP 의 실제 줄 번호를 찾아 그 앞에 넣습니다.
+    REJECT_LINE=$(sudo iptables -L INPUT --line-numbers -n | awk '/REJECT|DROP/{print $1; exit}')
+    if [ -n "$REJECT_LINE" ]; then
+      sudo iptables -I INPUT "$REJECT_LINE" -m state --state NEW -p tcp --dport "$PORT" -j ACCEPT
+    else
+      sudo iptables -A INPUT -m state --state NEW -p tcp --dport "$PORT" -j ACCEPT
+    fi
     echo "   $PORT/tcp 개방"
   else
     echo "   $PORT/tcp 이미 열림"
