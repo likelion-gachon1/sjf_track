@@ -1,8 +1,5 @@
 # MCM PORTAL — Oracle Cloud 무료 서버 배포 가이드
 
-> 가비아 VPS 대여 종료에 따른 이전 문서입니다. 구성(Docker + Nginx + DuckDNS + Let's Encrypt)은
-> 기존 「가비아 서버 배포 가이드」와 동일하고, **서버 제공자와 방화벽 절차만** 바뀝니다.
->
 > 대상 ▸ Oracle Cloud Infrastructure(OCI) **Always Free** 등급 · 요금 0원
 > 결과 ▸ `https://<도메인>.duckdns.org` 고정 주소 · 카메라 동작 · 재부팅 후에도 유지
 
@@ -18,8 +15,8 @@
                    ┌────────▼────────┐
                    │  nginx (호스트)  │  ← Let's Encrypt 인증서
                    └───┬─────────┬───┘
-                /api/  │         │  /
-                       │         │
+                /api/  │         │  /  +  /api/analyze-mood
+                       │         │      +  /api/passport
          ┌─────────────▼─┐   ┌───▼──────────────┐
          │ backend :8080 │   │ frontend :3000   │
          │ Spring Boot   │   │ Next.js (+OpenAI)│
@@ -33,8 +30,9 @@
 
 - 외부에 열린 포트는 **80/443 뿐**입니다. 3000·8080·5432 는 `127.0.0.1` 바인딩이라 인터넷에서 접근 불가.
 - 프론트와 백엔드가 **같은 도메인**을 쓰므로 CORS·mixed content 문제가 구조적으로 없습니다.
-- 이전 구성과 달리 DB 는 H2 파일 → **Postgres** 입니다 (백엔드에 드라이버가 이미 들어 있습니다).
-  H2 로 되돌리려면 11장 참고.
+- `/api/**` 는 백엔드로 가지만 `/api/analyze-mood` 와 `/api/passport` 는 **프론트의 Next.js
+  라우트**라 예외적으로 :3000 으로 넘깁니다 (`mcm.conf.template` 의 정규식 location).
+- DB 는 **Postgres 16** 컨테이너입니다.
 
 ### 필요한 파일 (모두 이 레포에 포함)
 
@@ -78,7 +76,7 @@
 > 1. 2 OCPU / 12 GB, 1 OCPU / 6 GB 로 낮춰 재시도
 > 2. 시간대를 바꿔 재시도 (한국 시간 새벽에 잘 잡힙니다)
 > 3. **PAYG 로 업그레이드** — 가장 확실합니다. Billing & Cost Management ▸ Upgrade and Payment Method. 전환해도 **Always Free 한도(A1 총 4 OCPU/24GB, 블록스토리지 200GB, 아웃바운드 월 10TB) 안에서는 계속 무료**이고, 일반 용량 풀을 쓰게 되어 이 에러가 거의 사라집니다.
-> 4. 그래도 안 되면 **VM.Standard.E2.1.Micro** (AMD 1 OCPU / 1 GB) — 항상 잡히지만 **서버에서 직접 빌드하면 메모리가 모자랍니다.** 12장의 "저사양 대응" 을 보세요.
+> 4. 그래도 안 되면 **VM.Standard.E2.1.Micro** (AMD 1 OCPU / 1 GB) — 항상 잡히지만 **서버에서 직접 빌드하면 메모리가 모자랍니다.** 11장의 "저사양 대응" 을 보세요.
 
 > **PAYG 로 전환했다면 예산 알림을 먼저 걸어두세요.** Billing & Cost Management ▸ Budgets ▸ Create Budget ▸ 스코프 root / **Monthly** / 금액 **$1** / Actual Spend / **50%** + 수신 메일. Always Free 범위만 쓰면 알림이 올 일이 없고, 오면 뭔가 한도를 넘긴 것입니다.
 >
@@ -249,21 +247,7 @@ Always Free 계정의 인스턴스는 **일정 기간 사용률이 낮으면 유
 
 ---
 
-## 11. H2 로 되돌리기
-
-Postgres 없이 이전처럼 H2 파일 DB 로 쓰려면 `deploy/docker-compose.prod.yml` 에서 `db` 서비스와 `depends_on` 을 지우고 backend 환경변수만 바꿉니다.
-
-```yaml
-      DB_URL: "jdbc:h2:file:/app/data/sjf;DB_CLOSE_ON_EXIT=FALSE"
-      DB_USERNAME: "sa"
-      DB_PASSWORD: ""
-```
-
-`volumes:` 에 `- backend-data:/app/data` 를 추가하고 최상위 `volumes:` 에도 `backend-data:` 를 선언하세요. 단, 백엔드에 Postgres 드라이버가 이미 있고 `ddl-auto: update` 라 **Postgres 쪽이 장기 운영에 유리합니다.**
-
----
-
-## 12. 트러블슈팅
+## 11. 트러블슈팅
 
 | 증상 | 원인 | 조치 |
 |---|---|---|
@@ -272,6 +256,7 @@ Postgres 없이 이전처럼 H2 파일 DB 로 쓰려면 `deploy/docker-compose.p
 | 카메라 권한 팝업이 안 뜸 | HTTP 접속 | `https://` 로 접속. 주소창 자물쇠 확인 |
 | 사진 업로드 413 | nginx 본문 크기 | `mcm.conf.template` 의 `client_max_body_size` (기본 50M) |
 | 무드 판정만 실패 | `OPENAI_API_KEY` 누락/만료 | `mcm logs frontend` 에서 401/429 확인 |
+| `/api/analyze-mood` 404 | nginx 가 프론트 라우트를 백엔드로 넘김 | `/etc/nginx/sites-available/mcm` 에 `location ~ ^/api/(analyze-mood\|passport)` 블록이 `location /api/` **앞**에 있는지 확인 |
 | QR 링크가 `localhost` | `PUBLIC_BASE_URL` 미반영 | `.env` 확인 후 **`mcm deploy`로 재빌드** (재시작으론 안 됩니다) |
 | `docker: permission denied` | docker 그룹 미반영 | 재접속(`exit` 후 ssh) |
 | 빌드 중 멈춤/OOM | 메모리 부족 | 아래 "저사양 대응" |
@@ -284,15 +269,3 @@ Postgres 없이 이전처럼 H2 파일 DB 로 쓰려면 `deploy/docker-compose.p
 1. **swap 을 8GB 로** — `oracle-setup.sh` 의 `fallocate -l 4G` 를 `8G` 로 바꿔 실행. 느리지만 통과합니다.
 2. **이미지를 밖에서 빌드** — GitHub Actions 나 로컬에서 `linux/arm64`(또는 `amd64`) 이미지를 빌드해 GHCR 에 올리고, 서버에서는 `docker compose pull` 만. 권장 방식이지만 설정이 한 단계 더 듭니다.
 
----
-
-## 부록 — 가비아 구성에서 바뀐 것
-
-| | 가비아 | Oracle Cloud |
-|---|---|---|
-| 방화벽 | 콘솔 한 곳 | **콘솔 + 서버 iptables 두 겹** |
-| 접속 | root 브라우저 터미널 | `ubuntu` 계정 SSH 키 |
-| 공인 IP | 고정 | 임시 IP는 중지/시작 시 변경 → **DuckDNS cron 으로 커버** |
-| DB | H2 파일 | Postgres 16 컨테이너 |
-| 포트 노출 | 3000·8080 공개 | `127.0.0.1` 바인딩, nginx 만 공개 |
-| 계정 유지 | 대여 기간 | 유휴 회수 정책 → **종량제 업그레이드 권장 (10장)** |
