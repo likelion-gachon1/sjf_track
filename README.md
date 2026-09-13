@@ -20,6 +20,10 @@ Stack ▸ Next.js · TypeScript · Tailwind · WebGL 크로마키 · MediaPipe �
 World 배경 위에 실시간 합성합니다(그린 스크린을 못 쓰면 MediaPipe 세그멘테이션으로 폴백).
 AI는 **의상을 보고 무드를 판정**하거나 **여권 카피를 쓰는** 데 씁니다.
 
+**서버 배포** ▸ [docs/deploy-oracle.md](docs/deploy-oracle.md) — Oracle Cloud 무료 등급에 프론트·백엔드·DB를
+한 VM으로 올리고 DuckDNS + Let's Encrypt로 HTTPS를 붙이는 전체 절차입니다. 실행 스크립트는 `deploy/` 에 있습니다.
+(기존 가비아 VPS 대여 종료로 이전했습니다.)
+
 ## 실행
 
 ```bash

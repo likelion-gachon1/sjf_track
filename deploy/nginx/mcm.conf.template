@@ -1,0 +1,55 @@
+# ============================================================
+# nginx 리버스 프록시 (호스트에서 동작, 컨테이너 아님)
+#
+# oracle-https.sh 가 __FQDN__ 을 실제 도메인으로 치환해
+# /etc/nginx/sites-available/mcm 으로 설치합니다.
+# 그 뒤 certbot --nginx 가 443 server 블록과 80→443 리다이렉트를
+# 이 파일에 자동으로 덧붙입니다.
+# ============================================================
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name __FQDN__;
+
+    # 촬영 이미지 업로드. BE 의 multipart 한도(10MB)보다 넉넉히 잡습니다.
+    client_max_body_size 50M;
+
+    # 부스 화면은 대형 캔버스를 계속 그리므로 프록시 타임아웃을 넉넉히.
+    proxy_read_timeout 300s;
+    proxy_send_timeout 300s;
+
+    # ---- 백엔드 (Spring Boot) ----
+    # BE 컨트롤러가 /api/** 를 쓰므로 경로를 그대로 넘깁니다.
+    # (proxy_pass 끝에 슬래시를 붙이면 /api 가 잘립니다 — 붙이지 마세요)
+    location /api/ {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # ---- 프론트 (Next.js) ----
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade           $http_upgrade;
+        proxy_set_header Connection        "upgrade";
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # MediaPipe wasm / ONNX 모델(15MB) 은 변하지 않으므로 길게 캐시.
+    # 부스 네트워크가 느릴 때 재방문 로딩이 눈에 띄게 빨라집니다.
+    location ~* ^/(mediapipe|onnx|models)/ {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        expires 30d;
+        add_header Cache-Control "public, immutable";
+    }
+}
