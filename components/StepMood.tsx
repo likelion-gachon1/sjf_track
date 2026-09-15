@@ -5,6 +5,7 @@ import { COPY, MOOD_ANALYSIS_CONFIG } from "@/config/portal.config";
 import { usePortalFlow } from "@/lib/FlowContext";
 import { useCamera } from "@/lib/useCamera";
 import { useClothingDetection } from "@/lib/useClothingDetection";
+import { captureAnalysisFrame } from "@/lib/moodAnalysis";
 import StepFrame from "./StepFrame";
 
 // 04: 의류 감지와 캡처만 담당합니다. 실제 무드 분석은 05 OPENING에서 실행합니다.
@@ -24,6 +25,12 @@ export default function StepMood() {
 
   const cameraFailed = status === "error";
   const waiting = status === "idle" || status === "requesting";
+  const detectionTimedOut = detection.status === "timed-out";
+
+  const continueWithCurrentFrame = useCallback(() => {
+    const video = videoRef.current;
+    startOpening(video ? captureAnalysisFrame(video) : null);
+  }, [startOpening, videoRef]);
 
   return (
     <StepFrame stepNumber={3} heading={COPY.moodHeading} subline={COPY.moodSubline}>
@@ -37,7 +44,13 @@ export default function StepMood() {
           className="h-full w-full -scale-x-100 object-cover"
         />
 
-        {status === "ready" && <GuideFrame detected={detection.status === "holding"} />}
+        {status === "ready" && (
+          <GuideFrame
+            detected={detection.status === "holding"}
+            framing={detection.framing}
+            center={detection.metrics?.center ?? null}
+          />
+        )}
 
         {waiting && (
           <Overlay>
@@ -67,6 +80,7 @@ export default function StepMood() {
           {cameraFailed ? COPY.moodDetectionUnavailable :
             waiting || detection.status === "loading" ? COPY.moodDetectionLoading :
             detection.status === "error" ? COPY.moodDetectionUnavailable :
+            detectionTimedOut ? COPY.moodDetectionTimedOut :
             detection.status === "holding" ? COPY.moodDetected : COPY.moodDetecting}
         </p>
         {status === "ready" && detection.status === "holding" && (
@@ -76,14 +90,25 @@ export default function StepMood() {
         )}
       </div>
 
-      {status === "ready" && detection.status === "error" && (
-        <button
-          type="button"
-          onClick={() => setRetryToken((value) => value + 1)}
-          className="mt-2 text-xs text-ink/70 underline underline-offset-4 hover:text-ink/90"
-        >
-          {COPY.moodDetectionRetry}
-        </button>
+      {status === "ready" && (detection.status === "error" || detectionTimedOut) && (
+        <div className="mt-2 flex items-center gap-5">
+          {detectionTimedOut && (
+            <button
+              type="button"
+              onClick={continueWithCurrentFrame}
+              className="rounded-full bg-ink px-6 py-2 text-xs tracking-widest text-paper"
+            >
+              {COPY.moodContinueCurrent}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setRetryToken((value) => value + 1)}
+            className="text-xs text-ink/70 underline underline-offset-4 hover:text-ink/90"
+          >
+            {COPY.moodDetectionRetry}
+          </button>
+        </div>
       )}
 
       {/* 카메라를 끝내 못 켰을 때의 출구 — 손님을 세워두지 않고 폴백으로 진행합니다. */}
@@ -102,18 +127,43 @@ export default function StepMood() {
 
 // 상의가 와야 할 자리를 표시합니다. MOOD_ANALYSIS_CONFIG.sampleRegion 을 그대로
 // 쓰므로, 폴백이 실제로 색을 재는 영역과 화면 안내가 어긋나지 않습니다.
-function GuideFrame({ detected }: { detected: boolean }) {
+function GuideFrame({
+  detected,
+  framing,
+  center,
+}: {
+  detected: boolean;
+  framing: "no-garment" | "off-center" | "too-small" | "too-large" | "ready";
+  center: { x: number; y: number } | null;
+}) {
   const { x, y, w, h } = MOOD_ANALYSIS_CONFIG.sampleRegion;
+  const targetX = x + w / 2;
+  const targetY = y + h / 2;
+  // 프리뷰는 좌우 반전되어 있으므로 모델 좌표도 화면 좌표로 바꿉니다.
+  const previewCenter = center ? { x: 1 - center.x, y: center.y } : null;
+  const angle = previewCenter
+    ? Math.atan2(targetY - previewCenter.y, targetX - previewCenter.x) * 180 / Math.PI
+    : 0;
+  const guidance = framing === "too-small" ? COPY.moodMoveCloser
+    : framing === "too-large" ? COPY.moodMoveBack
+    : framing === "off-center" ? COPY.moodCenterGarment
+    : framing === "no-garment" ? COPY.moodNoGarment
+    : null;
   return (
-    <div
-      className={`pointer-events-none absolute rounded-xl border-2 transition-colors ${detected ? "border-emerald-300" : "border-dashed border-white/55"}`}
-      style={{
-        left: `${x * 100}%`,
-        top: `${y * 100}%`,
-        width: `${w * 100}%`,
-        height: `${h * 100}%`,
-      }}
-    />
+    <>
+      <div
+        className={`pointer-events-none absolute rounded-xl border-2 transition-colors ${detected ? "border-emerald-300" : "border-dashed border-white/55"}`}
+        style={{ left: `${x * 100}%`, top: `${y * 100}%`, width: `${w * 100}%`, height: `${h * 100}%` }}
+      />
+      {guidance && (
+        <div className="pointer-events-none absolute inset-x-4 top-4 flex items-center justify-center gap-2 rounded-full bg-black/55 px-4 py-2 text-xs text-white backdrop-blur">
+          {framing === "off-center" && previewCenter && (
+            <span className="text-lg leading-none" style={{ transform: `rotate(${angle}deg)` }}>→</span>
+          )}
+          <span>{guidance}</span>
+        </div>
+      )}
+    </>
   );
 }
 

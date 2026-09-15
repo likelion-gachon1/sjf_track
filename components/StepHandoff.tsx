@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
 import { COPY, WORLDS } from "@/config/portal.config";
 import { findProductChoice } from "@/config/products.config";
-import { formatExpiresAt } from "@/lib/api";
+import { formatExpiresAt, uploadSession } from "@/lib/api";
 import { track } from "@/lib/analytics";
 import { usePortalFlow } from "@/lib/FlowContext";
 import { usePortalRuntime } from "@/lib/PortalRuntime";
+import { describeUploadError } from "@/lib/uploadError";
 
 // 08 QR HANDOFF — 사진을 모바일에서 이어받도록 QR 을 보여줍니다.
 // 촬영 사진은 앞 화면(09 MOMENT)에서 이미 크게 보여줬습니다. "다음"으로 마지막
@@ -16,22 +17,45 @@ export default function StepHandoff() {
   const { state, dispatch } = usePortalFlow();
   const runtime = usePortalRuntime();
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+  const uploadRunningRef = useRef(false);
 
   const world = state.selectedWorldId ? WORLDS[state.selectedWorldId] : null;
   const choice = findProductChoice(state.productId, state.colorwayKey);
   const pointColor = choice?.colorway.hex ?? "#0a0a0a";
 
-  const handoffUrl = useMemo(() => {
-    if (state.shareUrl) return state.shareUrl;
-    const host =
-      process.env.NEXT_PUBLIC_PORTAL_HOST ??
-      (typeof window !== "undefined" ? window.location.origin : "");
-    return `${host}/m/${state.sessionId}`;
-  }, [state.shareUrl, state.sessionId]);
+  const handoffUrl = state.uploadState === "done" ? state.shareUrl : null;
+
+  const retryUpload = useCallback(async () => {
+    if (uploadRunningRef.current || !state.capturedImage || !state.sessionId || state.capturedAt == null) return;
+    uploadRunningRef.current = true;
+    const sessionId = state.sessionId;
+    dispatch({ type: "UPLOAD_STARTED", sessionId });
+    try {
+      const res = await uploadSession({
+        sessionId,
+        consent: state.consent,
+        productId: state.productId,
+        colorwayKey: state.colorwayKey,
+        mood: state.answers.mood,
+        journey: state.answers.journey,
+        worldId: state.selectedWorldId,
+        capturedAt: state.capturedAt,
+      }, state.capturedImage);
+      dispatch({ type: "UPLOAD_SUCCEEDED", sessionId, url: res.shareUrl, expiresAt: res.expiresAt });
+    } catch (err: unknown) {
+      dispatch({ type: "UPLOAD_FAILED", sessionId, message: describeUploadError(err) });
+    } finally {
+      uploadRunningRef.current = false;
+    }
+  }, [dispatch, state]);
 
   useEffect(() => {
     let cancelled = false;
 
+    if (!handoffUrl) {
+      setQrDataUrl(null);
+      return;
+    }
     QRCode.toDataURL(handoffUrl, {
       width: 480,
       margin: 1,
@@ -52,8 +76,11 @@ export default function StepHandoff() {
   useEffect(() => {
     // 체험이 끝나가니 BGM 은 페이드아웃합니다.
     runtime.stopBgm();
-    track({ name: "qr_displayed", sessionId: state.sessionId });
-  }, [runtime, state.sessionId]);
+  }, [runtime]);
+
+  useEffect(() => {
+    if (handoffUrl) track({ name: "qr_displayed", sessionId: state.sessionId });
+  }, [handoffUrl, state.sessionId]);
 
   const expiryLabel = state.expiresAt ? formatExpiresAt(state.expiresAt) : null;
 
@@ -68,7 +95,7 @@ export default function StepHandoff() {
     <div className="flex h-full min-h-screen flex-col items-center justify-center bg-paper px-8 py-16 text-center">
       <h2 className="font-serif text-3xl">{COPY.handoffHeading}</h2>
 
-      <div
+      {handoffUrl ? <div
         className="mt-10 flex h-52 w-52 items-center justify-center rounded-xl border bg-white p-3"
         style={{ borderColor: pointColor }}
       >
@@ -78,10 +105,25 @@ export default function StepHandoff() {
         ) : (
           <span className="text-xs tracking-widest2 text-ink/60">QR</span>
         )}
-      </div>
+      </div> : (
+        <div className="mt-10 flex min-h-52 w-[24rem] max-w-[80vw] flex-col items-center justify-center gap-4 rounded-xl border border-ink/15 bg-white px-8">
+          {state.uploadState === "uploading" ? (
+            <p className="text-sm text-ink/70">{COPY.uploadInProgress}</p>
+          ) : (
+            <>
+              <p className="whitespace-pre-line text-sm leading-relaxed text-[#c0392b]">{COPY.handoffUnavailable}</p>
+              {state.uploadState === "failed" && (
+                <button type="button" onClick={() => void retryUpload()} className="rounded-full border border-ink/25 px-5 py-2 text-xs tracking-widest">
+                  {COPY.uploadRetry}
+                </button>
+              )}
+            </>
+          )}
+        </div>
+      )}
 
       <p className="mt-8 whitespace-pre-line text-sm leading-relaxed text-ink/85">
-        {COPY.handoffCaption}
+        {handoffUrl ? COPY.handoffCaption : ""}
       </p>
 
       {/* 만료 안내 — 업로드가 성공했을 때만 실제 시각을 알 수 있습니다. */}

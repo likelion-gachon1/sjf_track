@@ -1,11 +1,12 @@
 import type * as Ort from "onnxruntime-web/wasm";
-import { clothingCoverage, clothingInput } from "./clothingDetection";
+import { clothingInput, clothingMetrics } from "./clothingDetection";
 
 let ort: typeof Ort;
 let session: Ort.InferenceSession | null = null;
 type Input = { type: "init"; origin: string } | {
   type: "detect"; pixels: Uint8ClampedArray;
   region: { x: number; y: number; w: number; h: number };
+  confidence: number;
 };
 
 self.onmessage = async ({ data }: MessageEvent<Input>) => {
@@ -27,8 +28,8 @@ self.onmessage = async ({ data }: MessageEvent<Input>) => {
       try {
         outputs = await session.run({ pixel_values: input });
         const logits = outputs.logits;
-        const coverage = clothingCoverage(logits.data as Float32Array, logits.dims, data.region);
-        self.postMessage({ type: "result", coverage });
+        const metrics = clothingMetrics(logits.data as Float32Array, logits.dims, data.region, data.confidence);
+        self.postMessage({ type: "result", metrics });
       } finally {
         input.dispose();
         if (outputs) Object.values(outputs).forEach((tensor) => tensor.dispose());

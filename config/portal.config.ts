@@ -45,6 +45,12 @@ export const COPY = {
   moodDetecting: "가이드 안에서 옷을 찾고 있어요...",
   moodDetected: "옷이 감지됐어요. 잠시 그대로 있어주세요.",
   moodDetectionUnavailable: "옷을 인식하지 못했어요. 다시 시도해주세요.",
+  moodNoGarment: "가이드 안에 상의를 보여주세요.",
+  moodCenterGarment: "화살표를 따라 가이드 중앙에 맞춰주세요.",
+  moodMoveCloser: "카메라에 조금 더 가까이 와주세요.",
+  moodMoveBack: "한 걸음 뒤로 이동해주세요.",
+  moodDetectionTimedOut: "자동 인식이 오래 걸리고 있어요.",
+  moodContinueCurrent: "현재 화면으로 계속",
   /** 카메라를 끝내 못 켰을 때 — 손님을 세워두지 않고 폴백 결과로 진행하는 출구. */
   moodCameraSkip: "이대로 진행하기",
 
@@ -64,6 +70,10 @@ export const COPY = {
   momentEyebrow: "YOUR MCM MOMENT",
   momentCaption: "당신의 MCM 순간이 완성되었습니다.",
   momentNext: "다음",
+  momentRetake: "다시 촬영",
+  momentConfirm: "이 사진 사용",
+  momentConfirmed: "사진이 확정되었습니다.",
+  finishWithoutQr: "QR 없이 종료",
 
   // 09 MCM TRAVEL PASSPORT (촬영 사진 옆 여권 — 여행 유형/추천 이유는 AI 실시간 생성)
   passportTitle: "MCM TRAVEL PASSPORT",
@@ -86,6 +96,7 @@ export const COPY = {
   // QR HANDOFF
   handoffHeading: "체험이 완료되었습니다.",
   handoffCaption: "촬영한 사진을 저장하려면\nQR을 스캔해 주세요.",
+  handoffUnavailable: "사진 전송에 실패해 QR을 만들지 못했습니다.\n다음 고객을 위해 처음 화면으로 돌아가 주세요.",
   downloadButton: "사진 저장하기",
   restartButton: "처음으로",
   /** `{expiry}` 자리에 만료 시각이 들어갑니다. */
@@ -421,6 +432,21 @@ export const MOOD_ANALYSIS_CONFIG = {
   vividMinChroma: 0.6,
   /** 서버 라우트의 TIMEOUT_MS(app/api/analyze-mood/route.ts)와 항상 같이 맞추세요. */
   timeoutMs: 12_000,
+} as const;
+
+/** 04 의류 자동 인식과 프레이밍 기준. 실제 부스 조명·거리에 맞춰 이 값만 조정합니다. */
+export const CLOTHING_DETECTION_CONFIG = {
+  confidence: 0.7,
+  minGuideCoverage: 0.45,
+  minAreaRatio: 0.08,
+  maxAreaRatio: 0.48,
+  centerToleranceX: 0.12,
+  centerToleranceY: 0.16,
+  requiredFrames: 3,
+  modelLoadTimeoutMs: 60_000,
+  inferenceTimeoutMs: 30_000,
+  searchTimeoutMs: 15_000,
+  sampleIntervalMs: 350,
 } as const;
 
 // --- 7. 세그멘테이션(인물 분리) 설정 — 크로마키 폴백용 ---
