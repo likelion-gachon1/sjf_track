@@ -13,7 +13,10 @@ function load(file) {
   vm.runInNewContext(outputText, { exports, require: () => ({ createContext: () => ({}) }) });
   return exports;
 }
-const { clothingCoverage, clothingInput, createClothingGate } = load("lib/clothingDetection.ts");
+const {
+  clothingCoverage, clothingInput, clothingMetrics,
+  createClothingGate, evaluateClothingFraming,
+} = load("lib/clothingDetection.ts");
 const dims = [1, 18, 10, 10];
 const whole = { x: 0, y: 0, w: 1, h: 1 };
 function logits(label, score = 10) {
@@ -53,6 +56,40 @@ test("input follows model RGB/CHW normalization", () => {
   }
 });
 
+test("framing distinguishes absent, distance, alignment and ready states", () => {
+  const cfg = {
+    minGuideCoverage: 0.4, minAreaRatio: 0.08, maxAreaRatio: 0.5,
+    centerToleranceX: 0.12, centerToleranceY: 0.16,
+  };
+  const region = { x: 0.3, y: 0.3, w: 0.4, h: 0.5 };
+  const metric = (bounds, coverage = 0.5) => ({
+    coverage, bounds,
+    center: bounds ? { x: bounds.x + bounds.w / 2, y: bounds.y + bounds.h / 2 } : null,
+    confidenceQualifiedPixels: bounds ? 10 : 0,
+  });
+  assert.equal(evaluateClothingFraming(metric(null, 0), region, cfg), "no-garment");
+  assert.equal(evaluateClothingFraming(metric({ x: 0.45, y: 0.45, w: 0.1, h: 0.2 }), region, cfg), "too-small");
+  assert.equal(evaluateClothingFraming(metric({ x: 0.1, y: 0.1, w: 0.8, h: 0.8 }), region, cfg), "too-large");
+  assert.equal(evaluateClothingFraming(metric({ x: 0.05, y: 0.35, w: 0.3, h: 0.4 }), region, cfg), "off-center");
+  assert.equal(evaluateClothingFraming(metric({ x: 0.35, y: 0.35, w: 0.3, h: 0.4 }), region, cfg), "ready");
+});
+
+test("metrics include full-frame bounds while coverage remains guide-local", () => {
+  const values = logits(11);
+  for (let y = 2; y < 8; y++) for (let x = 3; x < 7; x++) {
+    const i = y * 10 + x;
+    values[11 * 100 + i] = 0;
+    values[4 * 100 + i] = 10;
+  }
+  const metrics = clothingMetrics(values, dims, { x: 0.3, y: 0.2, w: 0.4, h: 0.6 });
+  assert.equal(metrics.confidenceQualifiedPixels, 24);
+  assert.ok(metrics.coverage > 0.9);
+  assert.equal(metrics.bounds.x, 0.3);
+  assert.equal(metrics.bounds.y, 0.2);
+  assert.equal(metrics.bounds.w, 0.4);
+  assert.equal(metrics.bounds.h, 0.6);
+});
+
 const { flowReducer } = load("lib/FlowContext.tsx");
 const state = { step: "mood", sessionId: "current", moodAnalysis: null, moodFrame: null, answers: { mood: null, journey: "explore" } };
 const result = { mood: "calm", source: "local" };
@@ -73,4 +110,24 @@ test("analysis results stay in opening, release frame and reject stale/duplicate
   assert.equal(analyzed.answers.mood, "calm");
   assert.equal(flowReducer(analyzed, { type: "ANALYZE_MOOD", result, sessionId: "current" }), analyzed);
   assert.equal(flowReducer(analyzed, { type: "RESOLVE_WORLD", worldId: "paris_dawn" }).step, "reveal");
+});
+
+test("retake clears the current photo without accumulating customer images", () => {
+  const captured = flowReducer({ ...state, step: "experience", selectedWorldId: "paris_dawn" }, { type: "CAPTURE", dataUrl: "photo-a" });
+  assert.equal(captured.capturedImage, "photo-a");
+  assert.equal("savedMoments" in captured, false);
+  const retaken = flowReducer(captured, { type: "RETAKE" });
+  assert.equal(retaken.step, "experience");
+  assert.equal(retaken.capturedImage, null);
+});
+
+test("late upload responses cannot cross session boundaries", () => {
+  const confirmed = { ...state, step: "moment", sessionId: "new", photoConfirmed: true, uploadState: "uploading", shareUrl: null, expiresAt: null };
+  assert.equal(flowReducer(confirmed, { type: "SHOW_QR" }), confirmed);
+  assert.equal(flowReducer(confirmed, { type: "RETAKE" }), confirmed);
+  const stale = flowReducer(confirmed, { type: "UPLOAD_SUCCEEDED", sessionId: "old", url: "old-url", expiresAt: "old-expiry" });
+  assert.equal(stale, confirmed);
+  const current = flowReducer(confirmed, { type: "UPLOAD_SUCCEEDED", sessionId: "new", url: "new-url", expiresAt: "new-expiry" });
+  assert.equal(current.shareUrl, "new-url");
+  assert.equal(flowReducer(current, { type: "SHOW_QR" }).step, "handoff");
 });

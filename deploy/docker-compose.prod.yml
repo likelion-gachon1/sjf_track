@@ -50,6 +50,7 @@ services:
       H2_CONSOLE_ENABLED: "false"
       STORAGE_PATH: "/app/uploads"
       SESSION_TTL_HOURS: "${SESSION_TTL_HOURS:-24}"
+      SESSION_CLEANUP_INTERVAL_MS: "${SESSION_CLEANUP_INTERVAL_MS:-900000}"
       # 아래 3개는 모두 https://<도메인> 형태여야 합니다. (프론트와 같은 출처)
       FRONTEND_BASE_URL: "${PUBLIC_BASE_URL}"
       PUBLIC_API_BASE_URL: "${PUBLIC_BASE_URL}"
@@ -68,7 +69,6 @@ services:
         # NEXT_PUBLIC_* 는 빌드 타임에 코드로 박힙니다.
         # 이 값을 바꾸면 반드시 --build 로 다시 빌드해야 합니다.
         NEXT_PUBLIC_API_BASE: "${PUBLIC_BASE_URL}"
-        NEXT_PUBLIC_PORTAL_HOST: "${PUBLIC_BASE_URL}"
     container_name: mcm-frontend
     restart: unless-stopped
     depends_on:

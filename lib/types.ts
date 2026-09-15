@@ -120,14 +120,6 @@ export interface QuestionDef<K extends string> {
   options: QuestionOption<K>[];
 }
 
-export interface SavedMoment {
-  id: string;
-  worldId: WorldId;
-  savedAt: number;
-  /** 촬영 결과 JPEG dataURL (서버 업로드 없이 메모리에만 보관). */
-  imageDataUrl: string;
-}
-
 export interface Answers {
   mood: MoodKey | null;
   journey: JourneyKey | null;

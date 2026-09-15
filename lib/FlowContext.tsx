@@ -6,7 +6,6 @@ import type {
   ColorwayKey,
   JourneyKey,
   MoodAnalysis,
-  SavedMoment,
   StepId,
   WorldId,
 } from "@/lib/types";
@@ -27,13 +26,16 @@ interface FlowState {
   capturedAt: number | null;
   /** 촬영 결과 JPEG dataURL (서버 업로드 없이 메모리에만 보관). */
   capturedImage: string | null;
+  /** 사용자가 09 화면에서 최종 사진으로 확정했는지 여부. */
+  photoConfirmed: boolean;
+  uploadState: "idle" | "uploading" | "done" | "failed";
+  uploadError: string | null;
   /** 백엔드 업로드 후 받은 공유 URL (QR 에 사용). 실패 시 null. */
   shareUrl: string | null;
   /** 세션 만료 시각(ISO). 08 화면의 QR 유효기간 안내에 씁니다. 실패 시 null. */
   expiresAt: string | null;
   /** 07 음소거 토글 상태. */
   bgmMuted: boolean;
-  savedMoments: SavedMoment[];
 }
 
 const initialState: FlowState = {
@@ -48,10 +50,12 @@ const initialState: FlowState = {
   selectedWorldId: null,
   capturedAt: null,
   capturedImage: null,
+  photoConfirmed: false,
+  uploadState: "idle",
+  uploadError: null,
   shareUrl: null,
   expiresAt: null,
   bgmMuted: false,
-  savedMoments: [],
 };
 
 type FlowAction =
@@ -64,10 +68,15 @@ type FlowAction =
   | { type: "RESOLVE_WORLD"; worldId: WorldId }
   | { type: "ENTER_PORTAL" }
   | { type: "CAPTURE"; dataUrl: string }
+  | { type: "RETAKE" }
+  | { type: "CONFIRM_CAPTURE" }
+  | { type: "UPLOAD_STARTED"; sessionId: string }
+  | { type: "UPLOAD_SUCCEEDED"; sessionId: string; url: string; expiresAt: string }
+  | { type: "UPLOAD_FAILED"; sessionId: string; message: string }
   | { type: "SHOW_QR" }
+  | { type: "FINISH_WITHOUT_QR" }
   | { type: "TOGGLE_BGM_MUTE" }
   | { type: "CHANGE_WORLD"; worldId: WorldId }
-  | { type: "SET_SESSION_SHARE"; url: string; expiresAt: string }
   | { type: "RESET" };
 
 // 화면 전환 책임은 리듀서가 갖습니다. 각 전환은 "예상한 step 에서만" 일어나므로
@@ -124,25 +133,61 @@ export function flowReducer(state: FlowState, action: FlowAction): FlowState {
 
     case "CAPTURE": {
       if (state.step !== "experience" || !state.selectedWorldId) return state;
-      const capturedAt = Date.now();
-      const moment: SavedMoment = {
-        id: `${capturedAt}-${Math.random().toString(36).slice(2, 8)}`,
-        worldId: state.selectedWorldId,
-        savedAt: capturedAt,
-        imageDataUrl: action.dataUrl,
-      };
       return {
         ...state,
-        capturedAt,
+        capturedAt: Date.now(),
         capturedImage: action.dataUrl,
-        savedMoments: [...state.savedMoments, moment],
+        photoConfirmed: false,
+        uploadState: "idle",
+        uploadError: null,
+        shareUrl: null,
+        expiresAt: null,
         step: "moment",
       };
     }
 
+    case "RETAKE":
+      if (state.step !== "moment" || state.photoConfirmed) return state;
+      return {
+        ...state,
+        step: "experience",
+        capturedAt: null,
+        capturedImage: null,
+        uploadState: "idle",
+        uploadError: null,
+      };
+
+    case "CONFIRM_CAPTURE":
+      if (state.step !== "moment" || !state.capturedImage || state.photoConfirmed) return state;
+      return { ...state, photoConfirmed: true };
+
+    case "UPLOAD_STARTED":
+      if (state.sessionId !== action.sessionId || !state.photoConfirmed) return state;
+      return { ...state, uploadState: "uploading", uploadError: null };
+
+    case "UPLOAD_SUCCEEDED":
+      if (state.sessionId !== action.sessionId || !state.photoConfirmed) return state;
+      return {
+        ...state,
+        uploadState: "done",
+        uploadError: null,
+        shareUrl: action.url,
+        expiresAt: action.expiresAt,
+      };
+
+    case "UPLOAD_FAILED":
+      if (state.sessionId !== action.sessionId || !state.photoConfirmed) return state;
+      // 같은 세션의 중복 요청이 뒤늦게 실패해도 이미 확보한 유효 URL을 덮지 않습니다.
+      if (state.uploadState === "done" && state.shareUrl) return state;
+      return { ...state, uploadState: "failed", uploadError: action.message };
+
     case "SHOW_QR":
       // 09 사진 확인 → 08 QR
-      if (state.step !== "moment") return state;
+      if (state.step !== "moment" || state.uploadState !== "done" || !state.shareUrl) return state;
+      return { ...state, step: "handoff" };
+
+    case "FINISH_WITHOUT_QR":
+      if (state.step !== "moment" || state.uploadState !== "failed") return state;
       return { ...state, step: "handoff" };
 
     case "TOGGLE_BGM_MUTE":
@@ -152,16 +197,8 @@ export function flowReducer(state: FlowState, action: FlowAction): FlowState {
       // 미러 화면의 "다른 세계도 보기" 안건이 확정되면 되살립니다. 현재 사용처 없음.
       return { ...state, selectedWorldId: action.worldId };
 
-    case "SET_SESSION_SHARE":
-      return { ...state, shareUrl: action.url, expiresAt: action.expiresAt };
-
     case "RESET":
-      // 갤러리(savedMoments)는 부스 운영 중 계속 쌓이도록 유지하고,
-      // 개인 답변/동의/선택 World만 다음 고객을 위해 초기화합니다.
-      return {
-        ...initialState,
-        savedMoments: state.savedMoments,
-      };
+      return initialState;
 
     default:
       return state;

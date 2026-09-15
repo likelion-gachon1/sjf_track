@@ -4,41 +4,28 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { COPY, WORLDS } from "@/config/portal.config";
 import { findProductChoice } from "@/config/products.config";
 import { usePortalFlow } from "@/lib/FlowContext";
-import { ApiError, TimeoutError, uploadSession } from "@/lib/api";
+import { uploadSession } from "@/lib/api";
 import { PASSPORT_DEPARTURE, requestPassport, type PassportData } from "@/lib/passport";
-
-type UploadState = "uploading" | "done" | "failed";
-
-/** 실패 원인별 안내 — 방문객이 뭘 해야 할지 알 수 있게 나눕니다. */
-function describeUploadError(err: unknown): string {
-  if (err instanceof TimeoutError) return COPY.uploadTimeout;
-  if (err instanceof ApiError) {
-    return err.status === 413 ? COPY.uploadTooLarge : COPY.uploadServerError;
-  }
-  return COPY.uploadOffline;
-}
+import { describeUploadError } from "@/lib/uploadError";
 
 // 09 YOUR MCM MOMENT
 // 촬영 직후, 찍은 사진을 크게 보여주고 그 옆에 MCM TRAVEL PASSPORT 를 발급합니다.
 // 여권의 "여행 유형 / 추천 이유" 두 줄은 서버 라우트(/api/passport)를 통해 실시간
-// AI 로 생성되고, 실패하면 폴백 문구로 자동 대체됩니다. "다음"으로 08 QR 로 넘어갑니다.
+// 사용자가 사진을 확정하면 AI 여권과 업로드를 시작하고, 성공한 shareUrl 로만 QR을 만듭니다.
 export default function StepMoment() {
   const { state, dispatch } = usePortalFlow();
+  const uploadRunningRef = useRef(false);
 
-  const [uploadState, setUploadState] = useState<UploadState>("uploading");
-  const [failMessage, setFailMessage] = useState("");
-
-  // 촬영 직후, 합성 사진 + 선택값을 백엔드로 업로드하고 공유 URL 을 받아둡니다.
-  // 실패해도 "다음"은 계속 눌립니다 — 부스에서 손님을 세워두면 안 되기 때문에,
-  // 업로드는 재시도할 수 있게만 해두고 흐름 자체는 막지 않습니다.
+  // 사용자가 사진을 확정한 뒤에만 합성 사진과 선택값을 업로드합니다.
   const runUpload = useCallback(async () => {
-    if (!state.capturedImage || !state.sessionId || state.capturedAt == null) return;
-
-    setUploadState("uploading");
+    if (uploadRunningRef.current || !state.capturedImage || !state.sessionId || state.capturedAt == null) return;
+    uploadRunningRef.current = true;
+    const sessionId = state.sessionId;
+    dispatch({ type: "UPLOAD_STARTED", sessionId });
     try {
       const res = await uploadSession(
         {
-          sessionId: state.sessionId,
+          sessionId,
           consent: state.consent,
           productId: state.productId,
           colorwayKey: state.colorwayKey,
@@ -49,12 +36,12 @@ export default function StepMoment() {
         },
         state.capturedImage
       );
-      dispatch({ type: "SET_SESSION_SHARE", url: res.shareUrl, expiresAt: res.expiresAt });
-      setUploadState("done");
+      dispatch({ type: "UPLOAD_SUCCEEDED", sessionId, url: res.shareUrl, expiresAt: res.expiresAt });
     } catch (err: unknown) {
       console.warn("[portal] 세션 업로드 실패:", err);
-      setFailMessage(describeUploadError(err));
-      setUploadState("failed");
+      dispatch({ type: "UPLOAD_FAILED", sessionId, message: describeUploadError(err) });
+    } finally {
+      uploadRunningRef.current = false;
     }
   }, [dispatch, state]);
 
@@ -65,10 +52,10 @@ export default function StepMoment() {
   // MCM TRAVEL PASSPORT 발급 — 마운트 시 한 번, AI 멘트를 요청해 화면에 표시합니다.
   const [passport, setPassport] = useState<PassportData | null>(null);
 
-  // StrictMode 이중 마운트로 두 번 올라가지 않게 ref 로 최초 1회만 실행합니다.
+  // 사진 확정 전에는 AI 카피와 업로드 모두 실행하지 않습니다.
   const startedRef = useRef(false);
   useEffect(() => {
-    if (startedRef.current) return;
+    if (!state.photoConfirmed || startedRef.current) return;
     startedRef.current = true;
 
     if (choice && world && state.answers.mood && state.answers.journey) {
@@ -88,7 +75,7 @@ export default function StepMoment() {
 
     void runUpload();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [state.photoConfirmed]);
 
   return (
     <div className="flex h-full min-h-screen flex-col items-center justify-center bg-paper px-8 py-10 text-center">
@@ -119,19 +106,22 @@ export default function StepMoment() {
           passport={passport}
           pointColor={pointColor}
           shotAt={state.capturedAt != null ? formatShotAt(state.capturedAt) : "—"}
+          waitingForConfirmation={!state.photoConfirmed}
         />
       </div>
 
       <p className="mt-6 text-sm text-ink/85">{COPY.momentCaption}</p>
 
-      {/* 업로드 상태 — 실패해도 "다음"은 막지 않고 재시도만 제공합니다. */}
       <div className="mt-3 flex min-h-[2rem] items-center gap-3 text-xs">
-        {uploadState === "uploading" && (
+        {state.photoConfirmed && state.uploadState === "idle" && (
+          <span className="text-ink/70">{COPY.momentConfirmed}</span>
+        )}
+        {state.uploadState === "uploading" && (
           <span className="text-ink/70">{COPY.uploadInProgress}</span>
         )}
-        {uploadState === "failed" && (
+        {state.uploadState === "failed" && (
           <>
-            <span className="text-[#c0392b]">{failMessage}</span>
+            <span className="text-[#c0392b]">{state.uploadError}</span>
             <button
               type="button"
               onClick={() => void runUpload()}
@@ -143,14 +133,41 @@ export default function StepMoment() {
         )}
       </div>
 
-      <button
-        type="button"
-        onClick={() => dispatch({ type: "SHOW_QR" })}
-        className="mt-3 flex items-center gap-4 rounded-full bg-ink px-12 py-3.5 text-sm tracking-widest text-white transition-colors hover:bg-ink/85"
-      >
-        {COPY.momentNext}
-        <ArrowRight />
-      </button>
+      {!state.photoConfirmed ? (
+        <div className="mt-3 flex items-center gap-4">
+          <button
+            type="button"
+            onClick={() => dispatch({ type: "RETAKE" })}
+            className="rounded-full border border-ink/25 px-9 py-3.5 text-sm tracking-widest text-ink transition-colors hover:border-ink/60"
+          >
+            {COPY.momentRetake}
+          </button>
+          <button
+            type="button"
+            onClick={() => dispatch({ type: "CONFIRM_CAPTURE" })}
+            className="rounded-full bg-ink px-10 py-3.5 text-sm tracking-widest text-white transition-colors hover:bg-ink/85"
+          >
+            {COPY.momentConfirm}
+          </button>
+        </div>
+      ) : state.uploadState === "done" ? (
+        <button
+          type="button"
+          onClick={() => dispatch({ type: "SHOW_QR" })}
+          className="mt-3 flex items-center gap-4 rounded-full bg-ink px-12 py-3.5 text-sm tracking-widest text-white transition-colors hover:bg-ink/85"
+        >
+          {COPY.momentNext}
+          <ArrowRight />
+        </button>
+      ) : state.uploadState === "failed" ? (
+        <button
+          type="button"
+          onClick={() => dispatch({ type: "FINISH_WITHOUT_QR" })}
+          className="mt-3 text-xs text-ink/65 underline underline-offset-4 hover:text-ink"
+        >
+          {COPY.finishWithoutQr}
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -170,10 +187,12 @@ function Passport({
   passport,
   pointColor,
   shotAt,
+  waitingForConfirmation,
 }: {
   passport: PassportData | null;
   pointColor: string;
   shotAt: string;
+  waitingForConfirmation: boolean;
 }) {
   return (
     <div className="flex w-[23.75rem] max-w-[86vw] flex-col rounded-2xl border border-accent/40 bg-[#fbf9f4] p-7 text-left shadow-[0_24px_70px_-34px_rgba(0,0,0,0.5)]">
@@ -212,6 +231,8 @@ function Passport({
         <p className="mt-2 min-h-[1.5em] font-serif text-base leading-snug text-ink">
           {passport ? (
             <span className="animate-fadeIn">{passport.reason}</span>
+          ) : waitingForConfirmation ? (
+            <span className="text-ink/65">사진을 확정하면 여권을 발급해요.</span>
           ) : (
             <span className="text-ink/65">{COPY.passportLoading}</span>
           )}
